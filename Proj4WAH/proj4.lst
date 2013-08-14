@@ -1,0 +1,705 @@
+Microsoft (R) Macro Assembler Version 6.11		    11/13/12 03:11:04
+proj4.asm						     Page 1 - 1
+
+
+				;************************************************************************************
+				; Program Name:	proj4.asm
+				; Programmer:	Austin Horne
+				; Class:		CSCI 2160
+				; Lab:			Proj4
+				; Date:			November 13, 2012
+				; Purpose:		Driver for project 4. Calls the external methods from myutility.asm.
+				;				Tests for invalid password characters upon return from the 
+				;				getpassword method.
+				;
+				;************************************************************************************
+
+					.486
+					.model flat
+					include macros.asm
+			      C ;************************************************************************************
+			      C ; Program Name:	macros.asm
+			      C ; Programmer:	Austin Horne
+			      C ; Class:		CSCI 2160
+			      C ; Purpose:		To use macros, PROTO, and extern directives.
+			      C ;
+			      C ;************************************************************************************
+			      C ExitProcess PROTO stdcall, dwExitCode:DWORD
+			      C putstring PROTO stdcall, lpStringTOPrint:dword
+			      C getstring PROTO stdcall, lpStringToHoldCharacters:dword, dLength:dword
+			      C ascint32  PROTO  stdcall, lpStringToConvert:dword
+			      C intasc32 PROTO stdcall, lpStringToHoldASCII:dword, dVal:dword
+			      C extern  getchar:near32, putchar:near32, getpassword:near32, stringLength:near32,
+			      C 		getNum:near32
+			      C 	
+			      C COMMENT!
+			      C /************************************************************************************
+			      C  * Name: getc
+			      C  * Date: 11/9/12
+			      C  * Purpose: To get a character from the keyboard. Calls the getchar method from 
+			      C 			Utility201211.obj
+			      C  * Parameters:
+			      C 		@param char:byte
+			      C ************************************************************************************
+			      C !
+			      C getc macro char
+			      C 	push eax		;preserve register
+			      C 	
+			      C 	call getchar
+			      C 	mov char, al	;get the returned character into the parameter
+			      C 	
+			      C 	pop eax			;restore register	
+			      C endm
+			      C 
+			      C COMMENT!
+			      C /************************************************************************************
+			      C  * Name: putc
+			      C  * Date: 11/9/12
+			      C  * Purpose: To display a character on the screen. Calls the putchar method from 
+			      C 			Utility201211.obj
+			      C  * Parameters:
+			      C 		@param char:byte
+			      C ************************************************************************************
+			      C !
+			      C putc macro char 
+			      C 	push eax		;preserve eax
+			      C 	mov al, char	;;get the character passed into AL for the putchar procedure
+			      C 	push eax		;pass parameter to putchar
+			      C 	call putchar 
+			      C 	add esp, 4		;restore stack pointer
+			      C 	pop eax			;restore eax
+			      C endm
+			      C 
+			      C COMMENT!
+			      C /************************************************************************************
+			      C  * Name: newline
+			      C  * Date: 11/9/12
+			      C  * Purpose: Use the putc macro to display a carriage return and line feed to move 
+			      C  *			output to the next line.
+			      C ************************************************************************************
+			      C !	
+			      C newline macro
+			      C 	putc 0Dh		;;carriage return
+			      C 	putc 0Ah		;;new line character
+			      C endm
+			      C 
+					
+					.stack 100h	
+
+ 00000000				.data
+ 00000000 0000000C			maxLength dword 12				;max length of the password
+ 00000004  00000029 [			strName byte 41 dup(?)			;string to hold the name input
+	    00
+	   ]
+ 0000002D 57 65 6C 63 6F		strWelcome byte "Welcome, ",0
+	   6D 65 2C 20 00
+ 00000037 59 6F 75 72 20		strThanks byte "Your number has been saved. Thank you and goodbye!",0
+	   6E 75 6D 62 65
+	   72 20 68 61 73
+	   20 62 65 65 6E
+	   20 73 61 76 65
+	   64 2E 20 54 68
+	   61 6E 6B 20 79
+	   6F 75 20 61 6E
+	   64 20 67 6F 6F
+	   64 62 79 65 21
+	   00
+ 0000006A 57 68 61 74 20		strNamePrompt byte "What is your name? ",0
+	   69 73 20 79 6F
+	   75 72 20 6E 61
+	   6D 65 3F 20 00
+ 0000007E 57 68 61 74 20		strPwPrompt byte "What is your password? ",0
+	   69 73 20 79 6F
+	   75 72 20 70 61
+	   73 73 77 6F 72
+	   64 3F 20 00
+ 00000096 50 6C 65 61 73		strNumPrompt byte "Please enter a number. You may begin with a plus sign, minus",
+	   65 20 65 6E 74
+	   65 72 20 61 20
+	   6E 75 6D 62 65
+	   72 2E 20 59 6F
+	   75 20 6D 61 79
+	   20 62 65 67 69
+	   6E 20 77 69 74
+	   68 20 61 20 70
+	   6C 75 73 20 73
+	   69 67 6E 2C 20
+	   6D 69 6E 75 73
+	   0A 0D 73 69 67
+	   6E 2C 20 6F 72
+	   20 64 69 67 69
+	   74 73 20 31 2D
+	   39 3A 20 00
+										10,13,"sign, or digits 1-9: ",0
+ 000000EA 59 6F 75 20 65		strPwEntered byte "You entered: ",0
+	   6E 74 65 72 65
+	   64 3A 20 00
+ 000000F8 52 65 71 75 69		strPass byte "Requirements met",0
+	   72 65 6D 65 6E
+	   74 73 20 6D 65
+	   74 00
+ 00000109 54 68 65 20 66		strRestrictions byte "The following restrictions were violated:",0
+	   6F 6C 6C 6F 77
+	   69 6E 67 20 72
+	   65 73 74 72 69
+	   63 74 69 6F 6E
+	   73 20 77 65 72
+	   65 20 76 69 6F
+	   6C 61 74 65 64
+	   3A 00
+ 00000133 09 54 68 65 20		strLengthError byte 9, "The length must be at least 6 characters long, but", 
+	   6C 65 6E 67 74
+	   68 20 6D 75 73
+	   74 20 62 65 20
+	   61 74 20 6C 65
+	   61 73 74 20 36
+	   20 63 68 61 72
+	   61 63 74 65 72
+	   73 20 6C 6F 6E
+	   67 2C 20 62 75
+	   74 2C 20 6E 6F
+	   20 6C 6F 6E 67
+	   65 72 20 74 68
+	   61 6E 20 74 68
+	   65 20 73 70 65
+	   63 69 66 69 65
+	   64 20 6C 65 6E
+	   67 74 68 00
+							", no longer than the specified length",0
+ 0000018C 09 54 68 65 72		strUpperError byte 9, "There must be at least 1 uppercase alphabetic character",0
+	   65 20 6D 75 73
+	   74 20 62 65 20
+	   61 74 20 6C 65
+	   61 73 74 20 31
+	   20 75 70 70 65
+	   72 63 61 73 65
+	   20 61 6C 70 68
+	   61 62 65 74 69
+	   63 20 63 68 61
+	   72 61 63 74 65
+	   72 00
+ 000001C5 09 54 68 65 72		strLowerError byte 9, "There must be at least 1 lowercase alphabetic character",0
+	   65 20 6D 75 73
+	   74 20 62 65 20
+	   61 74 20 6C 65
+	   61 73 74 20 31
+	   20 6C 6F 77 65
+	   72 63 61 73 65
+	   20 61 6C 70 68
+	   61 62 65 74 69
+	   63 20 63 68 61
+	   72 61 63 74 65
+	   72 00
+ 000001FE 09 54 68 65 72		strSpecialError byte 9, "There must be at least 1 special character of the list",
+	   65 20 6D 75 73
+	   74 20 62 65 20
+	   61 74 20 6C 65
+	   61 73 74 20 31
+	   20 73 70 65 63
+	   69 61 6C 20 63
+	   68 61 72 61 63
+	   74 65 72 20 6F
+	   66 20 74 68 65
+	   20 6C 69 73 74
+	   20 40 21 24 23
+	   25 2A 00
+											" @!$#%*",0
+ 0000023D 09 54 68 65 20		strFirstChError byte 9, "The first character MUST be an alphabetic character",
+	   66 69 72 73 74
+	   20 63 68 61 72
+	   61 63 74 65 72
+	   20 4D 55 53 54
+	   20 62 65 20 61
+	   6E 20 61 6C 70
+	   68 61 62 65 74
+	   69 63 20 63 68
+	   61 72 61 63 74
+	   65 72 20 61 2D
+	   7A 2C 20 41 2D
+	   5A 00
+							" a-z, A-Z",0
+ 0000027B 09 54 68 65 72		strNumericError byte 9, "There must be at least 1 numeric digit 0-9",0
+	   65 20 6D 75 73
+	   74 20 62 65 20
+	   61 74 20 6C 65
+	   61 73 74 20 31
+	   20 6E 75 6D 65
+	   72 69 63 20 64
+	   69 67 69 74 20
+	   30 2D 39 00
+ 000002A7 09 49 6E 76 61		strInvalidChar byte 9, "Invalid character (not in A-Z, a-z, 0-9, @!$#%*)",0
+	   6C 69 64 20 63
+	   68 61 72 61 63
+	   74 65 72 20 28
+	   6E 6F 74 20 69
+	   6E 20 41 2D 5A
+	   2C 20 61 2D 7A
+	   2C 20 30 2D 39
+	   2C 20 40 21 24
+	   23 25 2A 29 00
+ 000002D9  0000000D [			strPassword byte 13 dup(?)		;holds the password
+	    00
+	   ]
+ 000002E6  0000000D [			strNum byte 13 dup (?)			;holds the number obtained from getNum
+	    00
+	   ]
+
+ 00000000				.code
+
+ 00000000			_start:
+ 00000000				
+					INVOKE putstring, addr strNamePrompt	;ask for a name
+					INVOKE getstring, addr strName, 40		;get the name
+				newline										;newline macro
+ 00000016  50		     2		push eax		
+ 00000017  B0 0D	     2		mov al, 0Dh	
+ 00000019  50		     2		push eax		
+ 0000001A  E8 00000000 E     2		call putchar 
+ 0000001F  83 C4 04	     2		add esp, 4		
+ 00000022  58		     2		pop eax			;restore eax
+ 00000023  50		     2		push eax		
+ 00000024  B0 0A	     2		mov al, 0Ah	
+ 00000026  50		     2		push eax		
+ 00000027  E8 00000000 E     2		call putchar 
+ 0000002C  83 C4 04	     2		add esp, 4		
+ 0000002F  58		     2		pop eax			;restore eax
+					INVOKE putstring, addr strWelcome		
+					INVOKE putstring, addr strName			;greet the user
+ 00000044			tryagain:
+				newline										;newline macro
+ 00000044  50		     2		push eax		
+ 00000045  B0 0D	     2		mov al, 0Dh	
+ 00000047  50		     2		push eax		
+ 00000048  E8 00000000 E     2		call putchar 
+ 0000004D  83 C4 04	     2		add esp, 4		
+ 00000050  58		     2		pop eax			;restore eax
+ 00000051  50		     2		push eax		
+ 00000052  B0 0A	     2		mov al, 0Ah	
+ 00000054  50		     2		push eax		
+ 00000055  E8 00000000 E     2		call putchar 
+ 0000005A  83 C4 04	     2		add esp, 4		
+ 0000005D  58		     2		pop eax			;restore eax
+					INVOKE putstring, addr strPwPrompt		;ask for a password
+
+ 00000068  68 000002D9 R		push offset strPassword		;address of string to hold password
+ 0000006D  FF 35 00000000 R		push maxLength				;max length of the password
+ 00000073  E8 00000000 E		call getpassword
+ 00000078  83 C4 08			add esp, 8					;restore the stack pointer
+
+				newline
+ 0000007B  50		     2		push eax		
+ 0000007C  B0 0D	     2		mov al, 0Dh	
+ 0000007E  50		     2		push eax		
+ 0000007F  E8 00000000 E     2		call putchar 
+ 00000084  83 C4 04	     2		add esp, 4		
+ 00000087  58		     2		pop eax			;restore eax
+ 00000088  50		     2		push eax		
+ 00000089  B0 0A	     2		mov al, 0Ah	
+ 0000008B  50		     2		push eax		
+ 0000008C  E8 00000000 E     2		call putchar 
+ 00000091  83 C4 04	     2		add esp, 4		
+ 00000094  58		     2		pop eax			;restore eax
+					INVOKE putstring, addr strPwEntered
+ 0000009F  33 F6			xor esi, esi		;index into strPassword
+					
+ 000000A1			displayEntered:
+ 000000A1  8A 8E 000002D9 R		mov cl, strPassword[esi]	;move current character into cl
+ 000000A7  80 F9 00			cmp cl, 0
+ 000000AA  74 10			je errors			;skip to testing when null found
+				putc cl
+ 000000AC  50		     1		push eax		
+ 000000AD  8A C1	     1		mov al, cl	
+ 000000AF  50		     1		push eax		
+ 000000B0  E8 00000000 E     1		call putchar 
+ 000000B5  83 C4 04	     1		add esp, 4		
+ 000000B8  58		     1		pop eax			;restore eax
+ 000000B9  46				inc esi				;next index in strPassword
+ 000000BA  EB E5			jmp displayEntered
+					
+ 000000BC			errors:	
+ 000000BC  3C 00			cmp al, 0			;check to see if errors occurred
+ 000000BE  75 7A			jne tests	
+				newline			;no errors. print valid
+ 000000C0  50		     2		push eax		
+ 000000C1  B0 0D	     2		mov al, 0Dh	
+ 000000C3  50		     2		push eax		
+ 000000C4  E8 00000000 E     2		call putchar 
+ 000000C9  83 C4 04	     2		add esp, 4		
+ 000000CC  58		     2		pop eax			;restore eax
+ 000000CD  50		     2		push eax		
+ 000000CE  B0 0A	     2		mov al, 0Ah	
+ 000000D0  50		     2		push eax		
+ 000000D1  E8 00000000 E     2		call putchar 
+ 000000D6  83 C4 04	     2		add esp, 4		
+ 000000D9  58		     2		pop eax			;restore eax
+					INVOKE putstring, addr strPass
+				newline
+ 000000E4  50		     2		push eax		
+ 000000E5  B0 0D	     2		mov al, 0Dh	
+ 000000E7  50		     2		push eax		
+ 000000E8  E8 00000000 E     2		call putchar 
+ 000000ED  83 C4 04	     2		add esp, 4		
+ 000000F0  58		     2		pop eax			;restore eax
+ 000000F1  50		     2		push eax		
+ 000000F2  B0 0A	     2		mov al, 0Ah	
+ 000000F4  50		     2		push eax		
+ 000000F5  E8 00000000 E     2		call putchar 
+ 000000FA  83 C4 04	     2		add esp, 4		
+ 000000FD  58		     2		pop eax			;restore eax
+				newline
+ 000000FE  50		     2		push eax		
+ 000000FF  B0 0D	     2		mov al, 0Dh	
+ 00000101  50		     2		push eax		
+ 00000102  E8 00000000 E     2		call putchar 
+ 00000107  83 C4 04	     2		add esp, 4		
+ 0000010A  58		     2		pop eax			;restore eax
+ 0000010B  50		     2		push eax		
+ 0000010C  B0 0A	     2		mov al, 0Ah	
+ 0000010E  50		     2		push eax		
+ 0000010F  E8 00000000 E     2		call putchar 
+ 00000114  83 C4 04	     2		add esp, 4		
+ 00000117  58		     2		pop eax			;restore eax
+					INVOKE putstring, addr strNumPrompt
+					
+ 00000122  FF 35 00000000 R		push maxLength	;maxLength = first parameter
+ 00000128  68 000002E6 R		push offset strNum
+ 0000012D  E8 00000000 E		call getNum
+ 00000132  83 C4 08			add esp, 8			;restore the stack pointer
+ 00000135  E9 00000169			jmp terminate		;end of program
+					
+ 0000013A			tests:	
+				newline		
+ 0000013A  50		     2		push eax		
+ 0000013B  B0 0D	     2		mov al, 0Dh	
+ 0000013D  50		     2		push eax		
+ 0000013E  E8 00000000 E     2		call putchar 
+ 00000143  83 C4 04	     2		add esp, 4		
+ 00000146  58		     2		pop eax			;restore eax
+ 00000147  50		     2		push eax		
+ 00000148  B0 0A	     2		mov al, 0Ah	
+ 0000014A  50		     2		push eax		
+ 0000014B  E8 00000000 E     2		call putchar 
+ 00000150  83 C4 04	     2		add esp, 4		
+ 00000153  58		     2		pop eax			;restore eax
+					INVOKE putstring, addr strRestrictions
+					
+				;test0	if error00 occurred (invalid length)
+ 0000015E  A8 01			test al, 00000001b			
+ 00000160  75 2D			jnz printError0
+					
+ 00000162			test1:	;if error01 occurred (first char not alpha)
+ 00000162  A8 02			test al, 00000010b			
+ 00000164  75 4F			jnz printError1		
+					
+ 00000166			test2:	;if error02 occurred (no lowercase)
+ 00000166  A8 04			test al, 00000100b			
+ 00000168  75 71			jnz printError2
+					
+ 0000016A			test3:	;if error03 occurred (no uppercase)
+ 0000016A  A8 08			test al, 00001000b			
+ 0000016C  0F 85 00000092		jnz printError3
+					
+ 00000172			test4:	;if error04 occurred (no specials)
+ 00000172  A8 10			test al, 00010000b
+ 00000174  0F 85 000000B3		jnz printError4
+					
+ 0000017A			test5:	;if error05 occurred (no numerics)
+ 0000017A  A8 20			test al, 00100000b
+ 0000017C  0F 85 000000D4		jnz printError5
+					
+ 00000182			test6:	;if error06 occurred (invalid character)
+ 00000182  A8 40			test al, 01000000b
+ 00000184  0F 85 000000F5		jnz printError6
+ 0000018A  E9 00000114			jmp terminate
+						
+ 0000018F			printError0:
+				newline
+ 0000018F  50		     2		push eax		
+ 00000190  B0 0D	     2		mov al, 0Dh	
+ 00000192  50		     2		push eax		
+ 00000193  E8 00000000 E     2		call putchar 
+ 00000198  83 C4 04	     2		add esp, 4		
+ 0000019B  58		     2		pop eax			;restore eax
+ 0000019C  50		     2		push eax		
+ 0000019D  B0 0A	     2		mov al, 0Ah	
+ 0000019F  50		     2		push eax		
+ 000001A0  E8 00000000 E     2		call putchar 
+ 000001A5  83 C4 04	     2		add esp, 4		
+ 000001A8  58		     2		pop eax			;restore eax
+					INVOKE putstring, addr strLengthError
+ 000001B3  EB AD			jmp test1
+					
+ 000001B5			printError1:
+				newline
+ 000001B5  50		     2		push eax		
+ 000001B6  B0 0D	     2		mov al, 0Dh	
+ 000001B8  50		     2		push eax		
+ 000001B9  E8 00000000 E     2		call putchar 
+ 000001BE  83 C4 04	     2		add esp, 4		
+ 000001C1  58		     2		pop eax			;restore eax
+ 000001C2  50		     2		push eax		
+ 000001C3  B0 0A	     2		mov al, 0Ah	
+ 000001C5  50		     2		push eax		
+ 000001C6  E8 00000000 E     2		call putchar 
+ 000001CB  83 C4 04	     2		add esp, 4		
+ 000001CE  58		     2		pop eax			;restore eax
+					INVOKE putstring, addr strFirstChError
+ 000001D9  EB 8B			jmp test2
+					
+ 000001DB			printError2:
+				newline
+ 000001DB  50		     2		push eax		
+ 000001DC  B0 0D	     2		mov al, 0Dh	
+ 000001DE  50		     2		push eax		
+ 000001DF  E8 00000000 E     2		call putchar 
+ 000001E4  83 C4 04	     2		add esp, 4		
+ 000001E7  58		     2		pop eax			;restore eax
+ 000001E8  50		     2		push eax		
+ 000001E9  B0 0A	     2		mov al, 0Ah	
+ 000001EB  50		     2		push eax		
+ 000001EC  E8 00000000 E     2		call putchar 
+ 000001F1  83 C4 04	     2		add esp, 4		
+ 000001F4  58		     2		pop eax			;restore eax
+					INVOKE putstring, addr strLowerError
+ 000001FF  E9 FFFFFF66			jmp test3
+					
+ 00000204			printError3:
+				newline	
+ 00000204  50		     2		push eax		
+ 00000205  B0 0D	     2		mov al, 0Dh	
+ 00000207  50		     2		push eax		
+ 00000208  E8 00000000 E     2		call putchar 
+ 0000020D  83 C4 04	     2		add esp, 4		
+ 00000210  58		     2		pop eax			;restore eax
+ 00000211  50		     2		push eax		
+ 00000212  B0 0A	     2		mov al, 0Ah	
+ 00000214  50		     2		push eax		
+ 00000215  E8 00000000 E     2		call putchar 
+ 0000021A  83 C4 04	     2		add esp, 4		
+ 0000021D  58		     2		pop eax			;restore eax
+					INVOKE putstring, addr strUpperError
+ 00000228  E9 FFFFFF45			jmp test4
+					
+ 0000022D			printError4:
+				newline
+ 0000022D  50		     2		push eax		
+ 0000022E  B0 0D	     2		mov al, 0Dh	
+ 00000230  50		     2		push eax		
+ 00000231  E8 00000000 E     2		call putchar 
+ 00000236  83 C4 04	     2		add esp, 4		
+ 00000239  58		     2		pop eax			;restore eax
+ 0000023A  50		     2		push eax		
+ 0000023B  B0 0A	     2		mov al, 0Ah	
+ 0000023D  50		     2		push eax		
+ 0000023E  E8 00000000 E     2		call putchar 
+ 00000243  83 C4 04	     2		add esp, 4		
+ 00000246  58		     2		pop eax			;restore eax
+					INVOKE putstring, addr strSpecialError
+ 00000251  E9 FFFFFF24			jmp test5
+					
+ 00000256			printError5:
+				newline
+ 00000256  50		     2		push eax		
+ 00000257  B0 0D	     2		mov al, 0Dh	
+ 00000259  50		     2		push eax		
+ 0000025A  E8 00000000 E     2		call putchar 
+ 0000025F  83 C4 04	     2		add esp, 4		
+ 00000262  58		     2		pop eax			;restore eax
+ 00000263  50		     2		push eax		
+ 00000264  B0 0A	     2		mov al, 0Ah	
+ 00000266  50		     2		push eax		
+ 00000267  E8 00000000 E     2		call putchar 
+ 0000026C  83 C4 04	     2		add esp, 4		
+ 0000026F  58		     2		pop eax			;restore eax
+					INVOKE putstring, addr strNumericError
+ 0000027A  E9 FFFFFF03			jmp test6
+					
+ 0000027F			printError6:
+				newline	
+ 0000027F  50		     2		push eax		
+ 00000280  B0 0D	     2		mov al, 0Dh	
+ 00000282  50		     2		push eax		
+ 00000283  E8 00000000 E     2		call putchar 
+ 00000288  83 C4 04	     2		add esp, 4		
+ 0000028B  58		     2		pop eax			;restore eax
+ 0000028C  50		     2		push eax		
+ 0000028D  B0 0A	     2		mov al, 0Ah	
+ 0000028F  50		     2		push eax		
+ 00000290  E8 00000000 E     2		call putchar 
+ 00000295  83 C4 04	     2		add esp, 4		
+ 00000298  58		     2		pop eax			;restore eax
+					INVOKE putstring, addr strInvalidChar
+					
+ 000002A3			terminate:
+ 000002A3  3C 00			cmp al, 0		;check for errors occurred
+ 000002A5  0F 85 FFFFFD99		jne tryagain
+					
+				newline
+ 000002AB  50		     2		push eax		
+ 000002AC  B0 0D	     2		mov al, 0Dh	
+ 000002AE  50		     2		push eax		
+ 000002AF  E8 00000000 E     2		call putchar 
+ 000002B4  83 C4 04	     2		add esp, 4		
+ 000002B7  58		     2		pop eax			;restore eax
+ 000002B8  50		     2		push eax		
+ 000002B9  B0 0A	     2		mov al, 0Ah	
+ 000002BB  50		     2		push eax		
+ 000002BC  E8 00000000 E     2		call putchar 
+ 000002C1  83 C4 04	     2		add esp, 4		
+ 000002C4  58		     2		pop eax			;restore eax
+				newline
+ 000002C5  50		     2		push eax		
+ 000002C6  B0 0D	     2		mov al, 0Dh	
+ 000002C8  50		     2		push eax		
+ 000002C9  E8 00000000 E     2		call putchar 
+ 000002CE  83 C4 04	     2		add esp, 4		
+ 000002D1  58		     2		pop eax			;restore eax
+ 000002D2  50		     2		push eax		
+ 000002D3  B0 0A	     2		mov al, 0Ah	
+ 000002D5  50		     2		push eax		
+ 000002D6  E8 00000000 E     2		call putchar 
+ 000002DB  83 C4 04	     2		add esp, 4		
+ 000002DE  58		     2		pop eax			;restore eax
+					INVOKE putstring, addr strThanks
+				newline
+ 000002E9  50		     2		push eax		
+ 000002EA  B0 0D	     2		mov al, 0Dh	
+ 000002EC  50		     2		push eax		
+ 000002ED  E8 00000000 E     2		call putchar 
+ 000002F2  83 C4 04	     2		add esp, 4		
+ 000002F5  58		     2		pop eax			;restore eax
+ 000002F6  50		     2		push eax		
+ 000002F7  B0 0A	     2		mov al, 0Ah	
+ 000002F9  50		     2		push eax		
+ 000002FA  E8 00000000 E     2		call putchar 
+ 000002FF  83 C4 04	     2		add esp, 4		
+ 00000302  58		     2		pop eax			;restore eax
+					INVOKE ExitProcess, 0
+ 0000030A				PUBLIC _start
+
+					END
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+	
+Microsoft (R) Macro Assembler Version 6.11		    11/13/12 03:11:04
+proj4.asm						     Symbols 2 - 1
+
+
+
+
+Macros:
+
+                N a m e                 Type
+
+getc . . . . . . . . . . . . . .	Proc
+newline  . . . . . . . . . . . .	Proc
+putc . . . . . . . . . . . . . .	Proc
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+FLAT . . . . . . . . . . . . . .	GROUP
+STACK  . . . . . . . . . . . . .	32 Bit	 00000100 DWord	  Stack	  'STACK'	 
+_DATA  . . . . . . . . . . . . .	32 Bit	 000002F3 DWord	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 0000030A DWord	  Public  'CODE'	
+
+
+Procedures,  parameters and locals:
+
+                N a m e                 Type     Value    Attr
+
+$$$$$$00001  . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 0000030A Private
+  tryagain . . . . . . . . . . .	L Near	 00000044 _TEXT	
+  displayEntered . . . . . . . .	L Near	 000000A1 _TEXT	
+  errors . . . . . . . . . . . .	L Near	 000000BC _TEXT	
+  tests  . . . . . . . . . . . .	L Near	 0000013A _TEXT	
+  test1  . . . . . . . . . . . .	L Near	 00000162 _TEXT	
+  test2  . . . . . . . . . . . .	L Near	 00000166 _TEXT	
+  test3  . . . . . . . . . . . .	L Near	 0000016A _TEXT	
+  test4  . . . . . . . . . . . .	L Near	 00000172 _TEXT	
+  test5  . . . . . . . . . . . .	L Near	 0000017A _TEXT	
+  test6  . . . . . . . . . . . .	L Near	 00000182 _TEXT	
+  printError0  . . . . . . . . .	L Near	 0000018F _TEXT	
+  printError1  . . . . . . . . .	L Near	 000001B5 _TEXT	
+  printError2  . . . . . . . . .	L Near	 000001DB _TEXT	
+  printError3  . . . . . . . . .	L Near	 00000204 _TEXT	
+  printError4  . . . . . . . . .	L Near	 0000022D _TEXT	
+  printError5  . . . . . . . . .	L Near	 00000256 _TEXT	
+  printError6  . . . . . . . . .	L Near	 0000027F _TEXT	
+  terminate  . . . . . . . . . .	L Near	 000002A3 _TEXT	
+ExitProcess  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ascint32 . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+getstring  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+intasc32 . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+putstring  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 00000000h   
+@DataSize  . . . . . . . . . . .	Number	 00000000h   
+@Interface . . . . . . . . . . .	Number	 00000000h   
+@Model . . . . . . . . . . . . .	Number	 00000007h   
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 FLAT
+@fardata?  . . . . . . . . . . .	Text   	 FLAT
+@fardata . . . . . . . . . . . .	Text   	 FLAT
+@stack . . . . . . . . . . . . .	Text   	 FLAT
+_start . . . . . . . . . . . . .	L Near	 00000000 _TEXT	Public
+displayEntered . . . . . . . . .	L Near	 000000A1 _TEXT	
+errors . . . . . . . . . . . . .	L Near	 000000BC _TEXT	
+getNum . . . . . . . . . . . . .	L Near	 00000000 FLAT	External
+getchar  . . . . . . . . . . . .	L Near	 00000000 FLAT	External
+getpassword  . . . . . . . . . .	L Near	 00000000 FLAT	External
+maxLength  . . . . . . . . . . .	DWord	 00000000 _DATA	
+printError0  . . . . . . . . . .	L Near	 0000018F _TEXT	
+printError1  . . . . . . . . . .	L Near	 000001B5 _TEXT	
+printError2  . . . . . . . . . .	L Near	 000001DB _TEXT	
+printError3  . . . . . . . . . .	L Near	 00000204 _TEXT	
+printError4  . . . . . . . . . .	L Near	 0000022D _TEXT	
+printError5  . . . . . . . . . .	L Near	 00000256 _TEXT	
+printError6  . . . . . . . . . .	L Near	 0000027F _TEXT	
+putchar  . . . . . . . . . . . .	L Near	 00000000 FLAT	External
+strFirstChError  . . . . . . . .	Byte	 0000023D _DATA	
+strInvalidChar . . . . . . . . .	Byte	 000002A7 _DATA	
+strLengthError . . . . . . . . .	Byte	 00000133 _DATA	
+strLowerError  . . . . . . . . .	Byte	 000001C5 _DATA	
+strNamePrompt  . . . . . . . . .	Byte	 0000006A _DATA	
+strName  . . . . . . . . . . . .	Byte	 00000004 _DATA	
+strNumPrompt . . . . . . . . . .	Byte	 00000096 _DATA	
+strNumericError  . . . . . . . .	Byte	 0000027B _DATA	
+strNum . . . . . . . . . . . . .	Byte	 000002E6 _DATA	
+strPassword  . . . . . . . . . .	Byte	 000002D9 _DATA	
+strPass  . . . . . . . . . . . .	Byte	 000000F8 _DATA	
+strPwEntered . . . . . . . . . .	Byte	 000000EA _DATA	
+strPwPrompt  . . . . . . . . . .	Byte	 0000007E _DATA	
+strRestrictions  . . . . . . . .	Byte	 00000109 _DATA	
+strSpecialError  . . . . . . . .	Byte	 000001FE _DATA	
+strThanks  . . . . . . . . . . .	Byte	 00000037 _DATA	
+strUpperError  . . . . . . . . .	Byte	 0000018C _DATA	
+strWelcome . . . . . . . . . . .	Byte	 0000002D _DATA	
+stringLength . . . . . . . . . .	L Near	 00000000 FLAT	External
+terminate  . . . . . . . . . . .	L Near	 000002A3 _TEXT	
+test1  . . . . . . . . . . . . .	L Near	 00000162 _TEXT	
+test2  . . . . . . . . . . . . .	L Near	 00000166 _TEXT	
+test3  . . . . . . . . . . . . .	L Near	 0000016A _TEXT	
+test4  . . . . . . . . . . . . .	L Near	 00000172 _TEXT	
+test5  . . . . . . . . . . . . .	L Near	 0000017A _TEXT	
+test6  . . . . . . . . . . . . .	L Near	 00000182 _TEXT	
+tests  . . . . . . . . . . . . .	L Near	 0000013A _TEXT	
+tryagain . . . . . . . . . . . .	L Near	 00000044 _TEXT	
+
+	   0 Warnings
+	   0 Errors

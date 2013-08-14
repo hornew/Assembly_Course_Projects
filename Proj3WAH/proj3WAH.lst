@@ -1,0 +1,511 @@
+Microsoft (R) Macro Assembler Version 6.11		    10/30/12 15:46:33
+proj3WAH.asm						     Page 1 - 1
+
+
+				;************************************************************************************
+				; Program Name:	proj3WAH.asm
+				; Programmer:	Austin Horne
+				; Class:		CSCI 2160
+				; Lab:			Proj3
+				; Date:			October 30, 2012
+				; Purpose:		Sort addresses input by the user. Display the addresses as entered,
+				;				sort them based on their ID extracted by the extractID method and
+				;				then display the sorted addresses.
+				;
+				;************************************************************************************
+					.486
+					.model flat
+					ExitProcess PROTO stdcall, dwExitCode:DWORD
+					putstring PROTO stdcall, lpStringTOPrint:dword
+					getstring PROTO stdcall, lpStringToHoldCharacters:dword, dLength:dword
+					ascint32  PROTO  stdcall, lpStringToConvert:dword
+					intasc32 PROTO stdcall, lpStringToHoldASCII:dword, dVal:dword	
+					
+					.stack 100h
+					
+ 00000000				.data
+
+ 00000000 0A 0D 50 6C 65	strDelimiterPrompt byte 10,13, "Please enter a comma, colon",
+	   61 73 65 20 65
+	   6E 74 65 72 20
+	   61 20 63 6F 6D
+	   6D 61 2C 20 63
+	   6F 6C 6F 6E 2C
+	   20 73 65 6D 69
+	   2D 63 6F 6C 6F
+	   6E 2C 20 70 6F
+	   75 6E 64 20 73
+	   69 67 6E 2C 20
+	   61 73 74 65 72
+	   69 73 6B 2C 20
+	   6F 72 20 64 61
+	   73 68 20 61 73
+	   20 74 68 65 0A
+	   0D 64 65 6C 69
+	   6D 69 74 65 72
+	   3A 20 20 00
+							", semi-colon, pound sign, asterisk, or dash as the", 10, 13, 
+							"delimiter:  ", 0
+ 0000005E 0A 0D 49 6E 76	strErrorMessage byte 10, 13, "Invalid delimiter.", 0
+	   61 6C 69 64 20
+	   64 65 6C 69 6D
+	   69 74 65 72 2E
+	   00
+ 00000073 0A 0D 45 6E 74	strAddressPrompt byte 10,13,"Enter a string of numeric characters, followed by the",
+	   65 72 20 61 20
+	   73 74 72 69 6E
+	   67 20 6F 66 20
+	   6E 75 6D 65 72
+	   69 63 20 63 68
+	   61 72 61 63 74
+	   65 72 73 2C 20
+	   66 6F 6C 6C 6F
+	   77 65 64 20 62
+	   79 20 74 68 65
+	   20 63 68 6F 73
+	   65 6E 20 64 65
+	   6C 69 6D 69 74
+	   65 72 2C 0A 0D
+	   66 6F 6C 6C 6F
+	   77 65 64 20 62
+	   79 20 61 20 73
+	   74 72 65 65 74
+	   20 61 64 64 72
+	   65 73 73 20 6F
+	   66 20 75 70 20
+	   74 6F 20 37 30
+	   20 63 68 61 72
+	   61 63 74 65 72
+	   73 3A 20 00
+							" chosen delimiter,",10,13, "followed by a street address of up to 70", 
+							" characters: ",0
+ 000000F4 0A 0D 53 74 72	strLengthPrompt byte 10,13,"String length: ", 0
+	   69 6E 67 20 6C
+	   65 6E 67 74 68
+	   3A 20 00
+ 00000106 0A 0D 54 68 65	strIndexed byte 10,13,"The strings AFTER the sort: ", 10,13, 0
+	   20 73 74 72 69
+	   6E 67 73 20 41
+	   46 54 45 52 20
+	   74 68 65 20 73
+	   6F 72 74 3A 20
+	   0A 0D 00
+ 00000127  00000002 [		strDelimiter byte 2 dup(?)		;holds the user's delimiter choice
+	    00
+	   ]
+ 00000129  00000051 [		strAddress byte 81 dup(?)		;holds the street address enetered by the user
+	    00
+	   ]
+ 0000017A  0000000A [		strNumber byte 10 dup (?)		;holds the numeric index of the string
+	    00
+	   ]
+ 00000184  00001000 [		strTable byte 1000h dup (?)		;holds the strings input by user	
+	    00
+	   ]
+ 00001184 0A 0D 00		newLine byte 10,13,0			;insert new line
+ 00001187 00			strLength byte ?				;length of the string
+ 00001188 00000000		iLength dword ?					;length of the string
+ 0000118C  00000064 [		IndexTable dword 100 dup(-1)	;values --> beginning address of strings in strTable
+	    FFFFFFFF
+	   ]
+					
+					
+ 00000000				.code
+
+ 00000000			_start:
+ 00000000			main proc
+ 00000000			getDelim:
+ 00000000  BE 00000000			mov esi, 0		;dummy instruction for debugger purposes
+					INVOKE putstring, ADDR strDelimiterPrompt	;ask user for a delimiter
+					INVOKE getstring, ADDR strDelimiter, 1		;get one character from keyboard
+					
+ 0000001B  B0 2C			mov al, ','
+ 0000001D  3A 05 00000127 R		cmp al, strDelimiter
+ 00000023  74 40			jz validDelim
+					
+ 00000025  B0 3A			mov al, ':'
+ 00000027  3A 05 00000127 R		cmp al, strDelimiter
+ 0000002D  74 36			jz validDelim
+					
+ 0000002F  B0 3B			mov al, ';'
+ 00000031  3A 05 00000127 R		cmp al, strDelimiter
+ 00000037  74 2C			jz validDelim				;validate user's delimiter choice
+												;if user's delim choice is any of these
+ 00000039  B0 23			mov al, '#'					;then continue on to next set of instructions
+ 0000003B  3A 05 00000127 R		cmp al, strDelimiter
+ 00000041  74 22			jz validDelim
+					
+ 00000043  B0 2A			mov al, '*'
+ 00000045  3A 05 00000127 R		cmp al, strDelimiter
+ 0000004B  74 18			jz validDelim
+					
+ 0000004D  B0 2D			mov al, '-'
+ 0000004F  3A 05 00000127 R		cmp al, strDelimiter
+ 00000055  74 0E			jz validDelim
+ 00000057  EB 00			jmp invalid					;ask for a valid delim otherwise
+					
+ 00000059			invalid:
+					INVOKE putstring, ADDR strErrorMessage	;prints error and asks for another delim
+ 00000063  EB 9B			jmp getDelim
+					
+ 00000065			validDelim:
+					
+ 00000065  BF 00000000			mov edi, 0			;index into IndexTable
+ 0000006A  BA 00000000			mov edx, 0			;index into strTable
+					
+ 0000006F			getAddresses:	
+
+				;now get the addresses from the user
+					INVOKE putstring, ADDR strAddressPrompt	;ask user for an address string
+					INVOKE getstring, ADDR strAddress, 80	;limit input to 80 characters
+					
+ 00000085  BE 00000000			mov esi, 0			;index into strAddress	
+					
+ 0000008A  8A 0D 00000129 R		mov cl, strAddress						;al = first character
+ 00000090  80 F9 00			cmp cl, 0								;check for enter key
+ 00000093  74 70			je endprompt							;Enter key hit when prompted for string
+					
+
+				;get the string length
+ 00000095  68 00000129 R		push offset strAddress					;get address of string on to stack
+ 0000009A  E8 000000CD			call stringLength	
+ 0000009F  83 C4 04			add esp, 4					;restore stack pointer
+ 000000A2  A3 00001188 R		mov iLength, eax			;get length from eax into iLength
+						
+				;display the string length
+					INVOKE intasc32, ADDR strLength, iLength
+					INVOKE putstring, ADDR newLine
+					INVOKE putstring, ADDR strLengthPrompt
+					INVOKE putstring, ADDR strLength
+
+				;put string in the table
+ 000000D5  BB 00000184 R		mov ebx, offset strTable				;ebx --> beginning address of strTable
+ 000000DA  03 DA			add ebx, edx							;ebx --> next address in strTable
+ 000000DC  89 9F 0000118C R		mov IndexTable[edi], ebx	;next available index in IndexTable contains next 
+																			;address in strTable
+																			
+ 000000E2  83 C7 04			add edi, type IndexTable		;point edi to next element in IndexTable
+ 000000E5			loadString:	
+ 000000E5  88 8A 00000184 R		mov strTable[edx], cl		;get Address into strTable character by character
+ 000000EB  46				inc esi						;increment the index pointing into string
+ 000000EC  42				inc edx						;point to next index in strTable
+ 000000ED  8A 8E 00000129 R		mov cl, strAddress[esi]		;next char
+ 000000F3  80 F9 00			cmp cl, 0					;check for end of string
+ 000000F6  75 ED			jne loadString				;keep loading the string into strTable
+ 000000F8  C6 82 00000184 R		mov strTable[edx],0			;null terminator
+	   00
+ 000000FF  42				inc edx						;point to next index in strTable
+ 00000100  E9 FFFFFF6A			jmp getAddresses				;get the next address	
+
+					;done getting strings. now sort and display
+ 00000105			endprompt:
+
+					;DISPLAYINFO
+					INVOKE putstring, addr strIndexed
+ 0000010F  68 0000118C R		push offset IndexTable		;address of IndexTable is stack parameter
+ 00000114  E8 000000C1			call displayInfo			;display the sorted strings
+ 00000119  83 C4 04			add esp, 4					;restore the stack pointer
+
+					;get the numeric key
+ 0000011C  A0 00000127 R		mov al, strDelimiter	;get delimiter on stack
+ 00000121  66| 50			push ax	
+ 00000123  68 0000017A R		push offset strNumber	;address of string to hold numeric key on the stack
+ 00000128  68 00000184 R		push offset	strTable	;address of string table on the stack
+ 0000012D  E8 0000000A			call extractID
+ 00000132  83 C4 0A			add esp, 10				;clean up the stack
+ 00000135			main endp
+ 00000135			exit:
+ 00000135				INVOKE ExitProcess, 0
+					PUBLIC _start
+
+
+				COMMENT !
+				/************************************************************************************
+				 * Method Name: extractID
+				 * Method Purpose: To extract a string representing an id from the beginning of a
+				 *				   string. ID extracted until delimiter is found. 
+				 *
+				 * Date created: 10/23/2012
+				 * Date last modified: 10/28/2012
+				 *
+				 * Parameters:	
+				 *		@param lpStringToSearch:dword - the address of the string to extract id from
+				 *		@param lpNumericID:dword - address of a string to hold the id
+				 *		@param delimiter:byte - delimiter which seperates id from the rest of string
+				 ************************************************************************************
+				 !
+ 0000013C 0000013C		 extractID PROC
+ 0000013C  55				push ebp		;preserve the base pointer
+ 0000013D  8B EC			mov ebp, esp	;set the stack frame
+ 0000013F  50				push eax		
+ 00000140  53				push ebx
+ 00000141  51				push ecx		;preserve registers used in method
+ 00000142  56				push esi		
+					
+ 00000143  8B 5C 2E 0C			mov ebx, [ebp+esi+12]		;string to search in [ebp+8] on stack
+ 00000147  8B 4C 2E 08			mov ecx, [ebp+8+esi]		;string to hold numeric indexes in [ebp+12] on stack
+
+ 0000014B  BE 00000000			mov esi, 0				;prime esi. will --> into stringToSearch
+ 00000150			appendNext:
+ 00000150  8A 04 0E			mov al, byte ptr[ecx+esi]	;get current character in source string
+ 00000153  3A 45 10			cmp al, byte ptr [ebp+16]	;character by character search for the delimiter
+ 00000156  74 06			je appendNull				;delim found, append null and end
+ 00000158  88 04 1E			mov [ebx+esi], al		;put character in numeric string
+ 0000015B  46				inc esi			;next index in string
+ 0000015C  75 F2			jne appendNext	;get next character
+					
+ 0000015E			appendNull:
+ 0000015E  B8 00000000			mov eax, 0
+ 00000163  89 04 1E			mov [ebx+esi], eax	;append null to the numeric string
+					
+ 00000166  5E				pop esi
+ 00000167  59				pop ecx
+ 00000168  5B				pop ebx			;restore registers used in method
+ 00000169  58				pop eax
+ 0000016A  5D				pop ebp
+ 0000016B  C3				ret
+ 0000016C			 extractID endp
+				 
+				 COMMENT !
+				/************************************************************************************
+				 * Method Name: stringLength
+				 * Method Purpose: Count the length of a string passed as a parameter
+				 *
+				 *
+				 * Date created: 10/23/2012
+				 * Date last modified: 10/28/2012
+				 *
+				 * Parameters:	
+				 *		@param lpStringToCount:dword
+				 * Return:		
+				 *		@return dword
+				 *
+				 ************************************************************************************
+				 !
+ 0000016C			stringLength PROC
+				 
+ 0000016C  55				push ebp				;preserve base pointer
+ 0000016D  8B EC			mov ebp, esp			;set the stack frame
+ 0000016F  53				push ebx				;preserve the value of ebx
+ 00000170  51				push ecx
+ 00000171  56				push esi				;preserve value of esi	
+					 
+ 00000172  B8 00000000			mov eax, 0				;prime eax. will hold the length of the string	 
+ 00000177  BE 00000000			mov esi, 0
+ 0000017C  8B 5D 08			mov ebx, [ebp+8]	;ebx --> address of strAddress
+					
+ 0000017F			count:
+					
+ 0000017F  8B 0C 1E			mov ecx, [ebx+esi]	;ecx gets value of strAddress byte by byte
+ 00000182  80 F9 00			cmp cl, 0			;look for end of string
+ 00000185  74 04			je lengthDone	;finished if character 0
+ 00000187  46				inc esi			;increment to find next index in string
+ 00000188  40				inc eax			;increment to track the length
+ 00000189  75 F4			jne count		;keep counting if character not 0
+
+ 0000018B			lengthDone:
+ 0000018B  5E				pop esi
+ 0000018C  59				pop ecx
+ 0000018D  5B				pop ebx			;restore registers used
+ 0000018E  5D				pop ebp
+					
+ 0000018F  C3				ret
+ 00000190			stringLength endp
+				 
+				COMMENT !
+				/************************************************************************************
+				 * Method Name: indexSort
+				 * Method Purpose: Sort the addresses stored in IndexTable based on the ascending 
+				 *				   order of the ID's stored in strNumber
+				 *
+				 * Date created: 10/23/2012
+				 * Date last modified: 10/29/2012
+				 *
+				 * Parameters:	
+				 *		@param lpStringToSort:dword	[ebp+8]
+				 *		@param lpIDString:dword	[ebp+12]
+				 *		@param delimiter:byte	[ebp+16]
+				 ************************************************************************************
+				 !
+ 00000190			indexSort proc
+					
+ 00000190  55				push ebp		;preserve base pointer
+ 00000191  8B EC			mov ebp, esp	;set stack frame
+ 00000193  50				push eax
+ 00000194  53				push ebx		;preserve registers used in method
+ 00000195  51				push ecx
+ 00000196  52				push edx
+ 00000197  56				push esi
+					
+ 00000198  BE 00000000			mov esi, 0			
+ 0000019D  8B 45 08			mov eax, [ebp+8]	;eax --> IndexTable
+ 000001A0  8B 5D 0C			mov ebx, [ebp+12]	;ebx --> strNumber
+ 000001A3  8B 4D 10			mov ecx, [ebp+16]	;ecx --> delimiter
+					
+ 000001A6  8A 45 10			mov al, [ebp+16]	
+ 000001A9  66| 50			push ax				;get delimiter on the stack
+ 000001AB  53				push ebx			;get strNumber starting address on the stack
+ 000001AC  51				push ecx			;get Indextable starting address on the stack
+ 000001AD  E8 FFFFFF8A			call extractID
+ 000001B2  83 C4 0A			add esp, 10			;restore the stack pointer
+					
+ 000001B5  8B 55 0C			mov edx, [ebp+12]	;get the value in strNumber
+ 000001B8  03 D6			add edx, esi		;increment edx to the next character in strNumber
+ 000001BA  46				inc esi
+					
+ 000001BB  66| 50			push ax				;get delimiter on the stack
+ 000001BD  53				push ebx			;get strNumber starting address on the stack
+ 000001BE  51				push ecx			;get Indextable starting address on the stack
+ 000001BF  E8 FFFFFF78			call extractID
+ 000001C4  83 C4 0A			add esp, 10			;restore the stack pointer
+					
+					INVOKE ascint32, [ebp+12]
+ 000001CF  3B D0			cmp edx, eax	;check to see if second ID is greater than first ID
+ 000001D1  7F 00			jg swap
+					
+ 000001D3			swap:
+					
+					
+ 000001D3  5E				pop esi
+ 000001D4  5A				pop edx
+ 000001D5  59				pop ecx
+ 000001D6  5B				pop ebx			;restore registers used in method
+ 000001D7  58				pop eax
+ 000001D8  5D				pop ebp			;restore base pointer
+					
+ 000001D9  C3				ret
+ 000001DA			indexSort endp
+
+				COMMENT !
+				/************************************************************************************
+				 * Method Name: displayInfo
+				 * Method Purpose: Display all strings in indexed order.
+				 *
+				 *
+				 * Date created: 10/23/2012
+				 * Date last modified: 10/30/2012
+				 *
+				 * Parameters:	
+				 *		@param lpIndexTable:dword
+				 *
+				 ************************************************************************************
+				 !
+ 000001DA			 displayInfo proc
+							
+ 000001DA  55				push ebp			;preserve base pointer
+ 000001DB  8B EC			mov ebp, esp		;set stack frame
+ 000001DD  50				push eax			
+ 000001DE  53				push ebx
+ 000001DF  57				push edi
+ 000001E0  56				push esi			;preserve registers used in method
+					
+ 000001E1  BE 00000000			mov esi, 0			;index into IndexTable
+ = [ebp+8]			IndexTab equ [ebp+8]	;let IndexTab be the starting address of IndexTable
+ 000001E6  8B 5D 08			mov ebx, [ebp+8]	;ebx --> starting address of IndexTable
+ 000001E9			begin:
+ 000001E9  8B 04 1E			mov eax, [ebx+esi]	;eax --> to current dword in IndexTab
+ 000001EC  83 F8 FF			cmp eax, -1				
+ 000001EF  74 15			je finished				;if -1 found, switch to print the strings
+					
+					INVOKE putstring, eax	;print the addresses
+					INVOKE putstring, ADDR newLine
+ 00000201  83 C6 04			add esi, 4						;next index in IndexTab
+ 00000204  EB E3			jmp begin						;get next address
+					
+ 00000206			finished:
+ 00000206  5E				pop esi				;restore registers used in method
+ 00000207  5F				pop edi
+ 00000208  5B				pop ebx
+ 00000209  58				pop eax
+ 0000020A  5D				pop ebp				;restore base pointer
+ 0000020B  C3				ret
+ 0000020C			 displayInfo endp
+					END
+				 ;end of file 
+				 
+				 
+				 
+				 
+				 
+				 
+				 
+				 
+ 
+Microsoft (R) Macro Assembler Version 6.11		    10/30/12 15:46:33
+proj3WAH.asm						     Symbols 2 - 1
+
+
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+FLAT . . . . . . . . . . . . . .	GROUP
+STACK  . . . . . . . . . . . . .	32 Bit	 00000100 DWord	  Stack	  'STACK'	 
+_DATA  . . . . . . . . . . . . .	32 Bit	 0000131C DWord	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 0000020C DWord	  Public  'CODE'	
+
+
+Procedures,  parameters and locals:
+
+                N a m e                 Type     Value    Attr
+
+$$$$$$00002  . . . . . . . . . .	P Near	 00000135 _TEXT	Length= 00000007 Private
+ExitProcess  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ascint32 . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+displayInfo  . . . . . . . . . .	P Near	 000001DA _TEXT	Length= 00000032 Public
+  begin  . . . . . . . . . . . .	L Near	 000001E9 _TEXT	
+  finished . . . . . . . . . . .	L Near	 00000206 _TEXT	
+extractID  . . . . . . . . . . .	P Near	 0000013C _TEXT	Length= 00000030 Public
+  appendNext . . . . . . . . . .	L Near	 00000150 _TEXT	
+  appendNull . . . . . . . . . .	L Near	 0000015E _TEXT	
+getstring  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+indexSort  . . . . . . . . . . .	P Near	 00000190 _TEXT	Length= 0000004A Public
+  swap . . . . . . . . . . . . .	L Near	 000001D3 _TEXT	
+intasc32 . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+main . . . . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000135 Public
+  getDelim . . . . . . . . . . .	L Near	 00000000 _TEXT	
+  invalid  . . . . . . . . . . .	L Near	 00000059 _TEXT	
+  validDelim . . . . . . . . . .	L Near	 00000065 _TEXT	
+  getAddresses . . . . . . . . .	L Near	 0000006F _TEXT	
+  loadString . . . . . . . . . .	L Near	 000000E5 _TEXT	
+  endprompt  . . . . . . . . . .	L Near	 00000105 _TEXT	
+putstring  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+stringLength . . . . . . . . . .	P Near	 0000016C _TEXT	Length= 00000024 Public
+  count  . . . . . . . . . . . .	L Near	 0000017F _TEXT	
+  lengthDone . . . . . . . . . .	L Near	 0000018B _TEXT	
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 00000000h   
+@DataSize  . . . . . . . . . . .	Number	 00000000h   
+@Interface . . . . . . . . . . .	Number	 00000000h   
+@Model . . . . . . . . . . . . .	Number	 00000007h   
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 FLAT
+@fardata?  . . . . . . . . . . .	Text   	 FLAT
+@fardata . . . . . . . . . . . .	Text   	 FLAT
+@stack . . . . . . . . . . . . .	Text   	 FLAT
+IndexTable . . . . . . . . . . .	DWord	 0000118C _DATA	
+IndexTab . . . . . . . . . . . .	Text   	 [ebp+8]
+_start . . . . . . . . . . . . .	L Near	 00000000 _TEXT	Public
+exit . . . . . . . . . . . . . .	L Near	 00000135 _TEXT	
+iLength  . . . . . . . . . . . .	DWord	 00001188 _DATA	
+newLine  . . . . . . . . . . . .	Byte	 00001184 _DATA	
+strAddressPrompt . . . . . . . .	Byte	 00000073 _DATA	
+strAddress . . . . . . . . . . .	Byte	 00000129 _DATA	
+strDelimiterPrompt . . . . . . .	Byte	 00000000 _DATA	
+strDelimiter . . . . . . . . . .	Byte	 00000127 _DATA	
+strErrorMessage  . . . . . . . .	Byte	 0000005E _DATA	
+strIndexed . . . . . . . . . . .	Byte	 00000106 _DATA	
+strLengthPrompt  . . . . . . . .	Byte	 000000F4 _DATA	
+strLength  . . . . . . . . . . .	Byte	 00001187 _DATA	
+strNumber  . . . . . . . . . . .	Byte	 0000017A _DATA	
+strTable . . . . . . . . . . . .	Byte	 00000184 _DATA	
+
+	   0 Warnings
+	   0 Errors

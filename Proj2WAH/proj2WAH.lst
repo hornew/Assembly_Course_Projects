@@ -1,0 +1,377 @@
+Microsoft (R) Macro Assembler Version 6.11		    10/13/12 04:08:21
+proj2WAH.asm						     Page 1 - 1
+
+
+				;************************************************************************************
+				; Program Name:	proj2WAH.asm
+				; Programmer:	Austin Horne
+				; Class:		CSCI 2160
+				; Lab:			Proj2
+				; Date:			October 13, 2012
+				; Purpose:		Use methods to accept input from the keyboard, convert that input 
+				;				into numeric values, and calculate the sum, difference, product, 
+				;				quotient, and remainder. Then use int to ascii conversion method to
+				;				print the results of each calculation. Conditional and unconditional
+				;				jumps are used to determine whether input was valid and whether 
+				;				an overflow occurred. Compare and jump equal are used to determine
+				;				whether the user hit only the enter key to end the program.
+				;
+				;************************************************************************************
+
+						.486
+						.model flat
+						ExitProcess PROTO NEAR32 stdcall, dwExitCode:DWORD
+						putstring PROTO stdcall, lpStringTOPrint:dword
+						getstring PROTO stdcall, lpStringToHoldCharacters:dword, dLength:dword
+						ascint32  PROTO  stdcall, lpStringToConvert:dword
+						intasc32 PROTO stdcall, lpStringToHoldASCII:dword, dVal:dword
+						
+						.stack 100h
+						
+ 00000000					.data
+						
+ 00000000 00000000					iFirstNum dword ?	;holds the first number input from the keyboard
+ 00000004 00000000					iSecondNum dword ?	;holds the second number input from the keyboard
+ 00000008 00000000					iSum dword ?		;holds the sum of the two numbers
+ 0000000C 00000000					iDifference dword ? ;holds the difference of the two
+ 00000010 00000000					iProduct dword ?	;holds the product of the two
+ 00000014 00000000					iQuotient dword ?	;holds the quotient of the two
+ 00000018 00000000					iRemainder dword ?	;holds the remainder of the two
+							
+ 0000001C 0A 0D 4D 79 20				strNameString byte 10, 13, "My name is Austin Horne", 0
+	   6E 61 6D 65 20
+	   69 73 20 41 75
+	   73 74 69 6E 20
+	   48 6F 72 6E 65
+	   00
+ 00000036 0A 0D 50 6C 65				strFirstNum byte 10, 13, "Please enter your first number: ", 0
+	   61 73 65 20 65
+	   6E 74 65 72 20
+	   79 6F 75 72 20
+	   66 69 72 73 74
+	   20 6E 75 6D 62
+	   65 72 3A 20 00
+ 00000059 0A 0D 50 6C 65				strSecondNum byte 10, 13, "Please enter your second number: ", 0
+	   61 73 65 20 65
+	   6E 74 65 72 20
+	   79 6F 75 72 20
+	   73 65 63 6F 6E
+	   64 20 6E 75 6D
+	   62 65 72 3A 20
+	   00
+ 0000007D 0A 0D 54 68 65				strSum byte 10, 13, "The sum is: ", 0
+	   20 73 75 6D 20
+	   69 73 3A 20 00
+ 0000008C 0A 0D 54 68 65				strDifference byte 10, 13, "The difference is: ", 0
+	   20 64 69 66 66
+	   65 72 65 6E 63
+	   65 20 69 73 3A
+	   20 00
+ 000000A2 0A 0D 54 68 65				strProduct byte 10, 13, "The product is: ", 0
+	   20 70 72 6F 64
+	   75 63 74 20 69
+	   73 3A 20 00
+ 000000B5 0A 0D 54 68 65				strQuotient byte 10, 13, "The quotient is: ", 0
+	   20 71 75 6F 74
+	   69 65 6E 74 20
+	   69 73 3A 20 00
+ 000000C9 0A 0D 54 68 65				strRemainder byte 10, 13, "The remainder is: ", 0
+	   20 72 65 6D 61
+	   69 6E 64 65 72
+	   20 69 73 3A 20
+	   00
+ 000000DE 0A 0D 49 4E 56				strInvalid byte 10, 13, "INVALID NUMERIC STRING. RE-ENTER VALUE.", 0
+	   41 4C 49 44 20
+	   4E 55 4D 45 52
+	   49 43 20 53 54
+	   52 49 4E 47 2E
+	   20 52 45 2D 45
+	   4E 54 45 52 20
+	   56 41 4C 55 45
+	   2E 00
+ 00000108 0A 0D 4F 56 45				strOverflow byte 10, 13, "OVERFLOW OCCURRED. RE-ENTER VALUE.", 0
+	   52 46 4C 4F 57
+	   20 4F 43 43 55
+	   52 52 45 44 2E
+	   20 52 45 2D 45
+	   4E 54 45 52 20
+	   56 41 4C 55 45
+	   2E 00
+ 0000012D 0A 0D 4F 56 45				strProductOverflow byte 10, 13, "OVERFLOW OCCURRED WHEN MULTIPLYING", 0
+	   52 46 4C 4F 57
+	   20 4F 43 43 55
+	   52 52 45 44 20
+	   57 48 45 4E 20
+	   4D 55 4C 54 49
+	   50 4C 59 49 4E
+	   47 00
+ 00000152 0A 0D 4F 56 45				strAdditionOverflow byte 10, 13, "OVERFLOW OCCURRED WHEN ADDING", 0
+	   52 46 4C 4F 57
+	   20 4F 43 43 55
+	   52 52 45 44 20
+	   57 48 45 4E 20
+	   41 44 44 49 4E
+	   47 00
+ 00000172 0A 0D 4F 56 45				strSubtractOverflow byte 10, 13, "OVERFLOW OCCURRED WHEN SUBTRACTING", 0
+	   52 46 4C 4F 57
+	   20 4F 43 43 55
+	   52 52 45 44 20
+	   57 48 45 4E 20
+	   53 55 42 54 52
+	   41 43 54 49 4E
+	   47 00
+							
+ 00000197 0A 0D 00					strNewLine byte 10, 13, 0 	;used to add a blank line
+ 0000019A  00000015 [					strInput byte 21 dup(?)		;used to hold input from the keyboard
+	    00
+	   ]
+ 000001AF  00000015 [					strOutput byte 21 dup(?), 0	;used to send output to the screen
+	    00
+	   ] 00
+							
+ 00000000					.code
+						
+						;If a non-numerical character is entered, this label will
+						;print the string that notifies the user and ask for input
+						;until valid input is received or program is terminated
+ 00000000					_firstInvalid:	
+ 00000000					INVOKE putstring, ADDR strInvalid
+						INVOKE putstring, ADDR strFirstNum
+						INVOKE getstring, ADDR strInput, 20
+						INVOKE ascint32, ADDR strInput
+ 0000002A  72 D4				jc _firstInvalid	;Loop back to label if input is still invalid
+ 0000002C  E9 00000108				jmp _returnToFirst	;If input is valid and cf = 0, jump back to first input
+											;to check for overflow occurrence.
+						
+						;If an overflow occurs, this label will print the string that notifies the 
+						;user and ask for input until valid input is received or program is 
+						;terminated.
+ 00000031					_firstOverflow:
+						INVOKE putstring, ADDR strOverflow
+						INVOKE putstring, ADDR strFirstNum
+						INVOKE getstring, ADDR strInput, 20
+						INVOKE ascint32, ADDR strInput
+ 0000005B  70 D4				jo _firstOverFlow	;Loop back to label if input still causes overflow
+ 0000005D  E9 000000DD				jmp _setFirst		;If of = 0, input is valid, jump to label. Following
+											;instruction moves eax into iFirstNum
+									
+						;If a non-numerical character is entered, this label will
+						;print the string that notifies the user and ask for input
+						;until valid input is received or program is terminated
+ 00000062					_secondInvalid:
+						INVOKE putstring, ADDR strInvalid
+						INVOKE putstring, ADDR strSecondNum
+						INVOKE getstring, ADDR strInput, 20
+						INVOKE ascint32, ADDR strInput
+ 0000008C  72 D4				jc _secondInvalid	;Loop back to label if input is still invalid
+ 0000008E  E9 000000E5				jmp _returnToSecond	;If input is valid and cf = 0, jump back to second input
+											;to check for overflow occurrence.
+						
+						;If an overflow occurs, this label will print the string that notifies the 
+						;user and ask for input until valid input is received or program is 
+						;terminated.
+ 00000093					_secondOverflow:
+						INVOKE putstring, ADDR strOverflow
+						INVOKE putstring, ADDR strSecondNum
+						INVOKE getstring, ADDR strInput, 20
+						INVOKE ascint32, ADDR strInput
+ 000000BD  70 D4				jo _secondOverFlow	;Loop back to label if input still causes overflow
+ 000000BF  E9 000000BA				jmp _setSecond		;If of = 0, input is valid, jump to label. Following
+											;instruction moves eax into iSecondNum
+						
+						;If product causes overflow, overflow message is printed in place of result
+						;Then jumps to following calculation, division.
+ 000000C4					_productOverflow:
+						INVOKE putstring, ADDR strProductOverflow
+ 000000CE  E9 00000159				jmp _division
+						
+						;If addition causes overflow, overflow message is printed in place of result
+						;Then jumps to following calculation, subtraction.
+ 000000D3					_addOverflow:
+						INVOKE putstring, ADDR strAdditionOverflow
+ 000000DD  E9 000000D6				jmp _subtraction
+						
+						;If subtraction causes overflow, overflow message is printed in place of 
+						;result. Then jumps to following calculation, multiplication.
+ 000000E2					_subtractOverflow:
+						INVOKE putstring, ADDR strSubtractOverflow
+ 000000EC  E9 00000101				jmp _multiplication		
+						
+						;start of code execution
+ 000000F1					_start:
+						INVOKE putstring, ADDR strNameString	;Name of programmer printed
+ 000000FB					_beginning:								;Program jumps to this label after
+																;each run
+						INVOKE putstring, ADDR strNewLine		;New line for spacing
+						INVOKE putstring, ADDR strFirstNum		;Prompt user for first number
+						INVOKE getstring, ADDR strInput, 20		;Get input, max 20 characters
+						
+ 0000011B  B3 00				mov bl, 0			
+ 0000011D  3A 1D 0000019A R			cmp bl, strInput	;checks for only enter key hit (null character)
+ 00000123  0F 84 00000167			je _terminate		;skips to terminate label at end of program if equal
+						INVOKE ascint32, ADDR strInput	;try to convert input string to int
+ 00000133  0F 82 FFFFFEC7			jc _firstInvalid				;jump to this label if cf = 1 (bad input)
+ 00000139					_returnToFirst:					;return label from _firstInvalid
+ 00000139  0F 80 FFFFFEF2			jo _firstOverFlow				;jump to this label if of = 1 (overflow)
+ 0000013F					_setFirst:						;return label from _firstOverFlow
+ 0000013F  A3 00000000 R			mov iFirstNum, eax				;when input is valid, placed in iFirstNum
+						
+						INVOKE putstring, ADDR strSecondNum		;Prompt user for second number
+						INVOKE getstring, ADDR strInput, 20		;Get input, max 20 characters
+ 0000015A  B3 00				mov bl, 0
+ 0000015C  3A 1D 0000019A R			cmp bl, strInput	;checks for only enter key hit (null character)
+ 00000162  0F 84 00000128			je _terminate		;skips to terminate label at end of program if equal
+						INVOKE ascint32, ADDR strInput	;try to convert input string to int
+ 00000172  0F 82 FFFFFEEA			jc _secondInvalid				;jump to this label if cf = 1 (bad input)
+ 00000178					_returnToSecond:				;return label from _secondInvalid
+ 00000178  0F 80 FFFFFF15			jo _secondOverFlow				;jump to this label if of = 1 (overflow)
+ 0000017E					_setSecond:						;return label from _secondOverFlow		
+ 0000017E  A3 00000004 R			mov iSecondNum, eax				;when input is valid, placed in iSecondNum
+						
+ 00000183  03 05 00000000 R			add eax, iFirstNum	;eax still contains second number input, add with 1st
+ 00000189  0F 80 FFFFFF44			jo _addOverflow		;if overflow occurs, message will be printed 
+ 0000018F  A3 00000008 R			mov iSum, eax		;else, result moved to iSum and iSum printed
+						INVOKE intasc32, ADDR strOutput, iSum
+						INVOKE putstring, ADDR strSum
+						INVOKE putstring, ADDR strOutput
+						
+ 000001B8					_subtraction:
+ 000001B8  A1 00000000 R			mov eax, iFirstNum		
+ 000001BD  2B 05 00000004 R			sub eax, iSecondNum		;subtract second number from first
+ 000001C3  0F 80 FFFFFF19			jo _subtractOverflow
+ 000001C9  A3 0000000C R			mov iDifference, eax
+						INVOKE intasc32, ADDR strOutput, iDifference
+						INVOKE putstring, ADDR strDifference
+						INVOKE putstring, ADDR strOutput	;convert and output the difference
+						
+ 000001F2					_multiplication:
+ 000001F2  A1 00000000 R			mov eax, iFirstNum	
+ 000001F7  F7 2D 00000004 R			imul iSecondNum			;multiply first and second numbers
+ 000001FD  0F 80 FFFFFEC1			jo _productOverflow	
+ 00000203  A3 00000010 R			mov iProduct, eax
+						INVOKE intasc32, ADDR strOutput, iProduct
+						INVOKE putstring, ADDR strProduct
+						INVOKE putstring, ADDR strOutput	;convert and output the product
+						
+ 0000022C					_division:
+ 0000022C  A1 00000000 R			mov eax, iFirstNum
+ 00000231  99					cdq
+ 00000232  F7 3D 00000004 R			iDiv iSecondNum			;divide first by second
+ 00000238  A3 00000014 R			mov iQuotient, eax		
+						INVOKE intasc32, ADDR strOutput, iQuotient
+						INVOKE putstring, ADDR strQuotient
+						INVOKE putstring, ADDR strOutput		;convert and output the quotient
+						
+ 00000261  89 15 00000018 R			mov iRemainder, edx		
+						INVOKE intasc32, ADDR strOutput, iRemainder
+						INVOKE putstring, ADDR strRemainder
+						INVOKE putstring, ADDR strOutput	;convert and output the remainder
+						
+ 0000028B  E9 FFFFFE6B				jmp _beginning		;returns to ask for first number
+						
+ 00000290					_terminate:			;used to skip to end only when the enter key is hit
+						
+						INVOKE ExitProcess, 0
+ 00000297					PUBLIC _start
+						
+						END
+Microsoft (R) Macro Assembler Version 6.11		    10/13/12 04:08:21
+proj2WAH.asm						     Symbols 2 - 1
+
+
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+FLAT . . . . . . . . . . . . . .	GROUP
+STACK  . . . . . . . . . . . . .	32 Bit	 00000100 DWord	  Stack	  'STACK'	 
+_DATA  . . . . . . . . . . . . .	32 Bit	 000001C5 DWord	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 00000297 DWord	  Public  'CODE'	
+
+
+Procedures,  parameters and locals:
+
+                N a m e                 Type     Value    Attr
+
+$$$$$$00001  . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000297 Private
+  _firstOverflow . . . . . . . .	L Near	 00000031 _TEXT	
+  _secondInvalid . . . . . . . .	L Near	 00000062 _TEXT	
+  _secondOverflow  . . . . . . .	L Near	 00000093 _TEXT	
+  _productOverflow . . . . . . .	L Near	 000000C4 _TEXT	
+  _addOverflow . . . . . . . . .	L Near	 000000D3 _TEXT	
+  _subtractOverflow  . . . . . .	L Near	 000000E2 _TEXT	
+  _start . . . . . . . . . . . .	L Near	 000000F1 _TEXT	
+  _beginning . . . . . . . . . .	L Near	 000000FB _TEXT	
+  _returnToFirst . . . . . . . .	L Near	 00000139 _TEXT	
+  _setFirst  . . . . . . . . . .	L Near	 0000013F _TEXT	
+  _returnToSecond  . . . . . . .	L Near	 00000178 _TEXT	
+  _setSecond . . . . . . . . . .	L Near	 0000017E _TEXT	
+  _subtraction . . . . . . . . .	L Near	 000001B8 _TEXT	
+  _multiplication  . . . . . . .	L Near	 000001F2 _TEXT	
+  _division  . . . . . . . . . .	L Near	 0000022C _TEXT	
+  _terminate . . . . . . . . . .	L Near	 00000290 _TEXT	
+ExitProcess  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ascint32 . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+getstring  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+intasc32 . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+putstring  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 00000000h   
+@DataSize  . . . . . . . . . . .	Number	 00000000h   
+@Interface . . . . . . . . . . .	Number	 00000000h   
+@Model . . . . . . . . . . . . .	Number	 00000007h   
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 FLAT
+@fardata?  . . . . . . . . . . .	Text   	 FLAT
+@fardata . . . . . . . . . . . .	Text   	 FLAT
+@stack . . . . . . . . . . . . .	Text   	 FLAT
+_addOverflow . . . . . . . . . .	L Near	 000000D3 _TEXT	
+_beginning . . . . . . . . . . .	L Near	 000000FB _TEXT	
+_division  . . . . . . . . . . .	L Near	 0000022C _TEXT	
+_firstInvalid  . . . . . . . . .	L Near	 00000000 _TEXT	
+_firstOverflow . . . . . . . . .	L Near	 00000031 _TEXT	
+_multiplication  . . . . . . . .	L Near	 000001F2 _TEXT	
+_productOverflow . . . . . . . .	L Near	 000000C4 _TEXT	
+_returnToFirst . . . . . . . . .	L Near	 00000139 _TEXT	
+_returnToSecond  . . . . . . . .	L Near	 00000178 _TEXT	
+_secondInvalid . . . . . . . . .	L Near	 00000062 _TEXT	
+_secondOverflow  . . . . . . . .	L Near	 00000093 _TEXT	
+_setFirst  . . . . . . . . . . .	L Near	 0000013F _TEXT	
+_setSecond . . . . . . . . . . .	L Near	 0000017E _TEXT	
+_start . . . . . . . . . . . . .	L Near	 000000F1 _TEXT	Public
+_subtractOverflow  . . . . . . .	L Near	 000000E2 _TEXT	
+_subtraction . . . . . . . . . .	L Near	 000001B8 _TEXT	
+_terminate . . . . . . . . . . .	L Near	 00000290 _TEXT	
+iDifference  . . . . . . . . . .	DWord	 0000000C _DATA	
+iFirstNum  . . . . . . . . . . .	DWord	 00000000 _DATA	
+iProduct . . . . . . . . . . . .	DWord	 00000010 _DATA	
+iQuotient  . . . . . . . . . . .	DWord	 00000014 _DATA	
+iRemainder . . . . . . . . . . .	DWord	 00000018 _DATA	
+iSecondNum . . . . . . . . . . .	DWord	 00000004 _DATA	
+iSum . . . . . . . . . . . . . .	DWord	 00000008 _DATA	
+strAdditionOverflow  . . . . . .	Byte	 00000152 _DATA	
+strDifference  . . . . . . . . .	Byte	 0000008C _DATA	
+strFirstNum  . . . . . . . . . .	Byte	 00000036 _DATA	
+strInput . . . . . . . . . . . .	Byte	 0000019A _DATA	
+strInvalid . . . . . . . . . . .	Byte	 000000DE _DATA	
+strNameString  . . . . . . . . .	Byte	 0000001C _DATA	
+strNewLine . . . . . . . . . . .	Byte	 00000197 _DATA	
+strOutput  . . . . . . . . . . .	Byte	 000001AF _DATA	
+strOverflow  . . . . . . . . . .	Byte	 00000108 _DATA	
+strProductOverflow . . . . . . .	Byte	 0000012D _DATA	
+strProduct . . . . . . . . . . .	Byte	 000000A2 _DATA	
+strQuotient  . . . . . . . . . .	Byte	 000000B5 _DATA	
+strRemainder . . . . . . . . . .	Byte	 000000C9 _DATA	
+strSecondNum . . . . . . . . . .	Byte	 00000059 _DATA	
+strSubtractOverflow  . . . . . .	Byte	 00000172 _DATA	
+strSum . . . . . . . . . . . . .	Byte	 0000007D _DATA	
+
+	   0 Warnings
+	   0 Errors

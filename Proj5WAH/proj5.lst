@@ -1,0 +1,864 @@
+Microsoft (R) Macro Assembler Version 6.11		    12/02/12 11:53:54
+proj5.asm						     Page 1 - 1
+
+
+				;************************************************************************************
+				; Program Name:  proj5.asm
+				; Programmer:    Austin Horne
+				; Class:         CSCI 2160
+				; Date:          December 2, 2012
+				; Purpose:
+				;    Using linked lists. Display the use of linkedlist.asm
+				;
+				;************************************************************************************  
+					.486
+					.model flat
+					.stack 100h
+					include macros.asm	
+			      C ;************************************************************************************
+			      C ; Program Name:	macros.asm
+			      C ; Programmer:	Austin Horne
+			      C ; Class:		CSCI 2160
+			      C ; Purpose:		To use macros, PROTO, and extern directives.
+			      C ;
+			      C ;************************************************************************************
+			      C ExitProcess PROTO stdcall, dwExitCode:DWORD
+			      C putstring PROTO stdcall, lpStringTOPrint:dword
+			      C getstring PROTO stdcall, lpStringToHoldCharacters:dword, dLength:dword
+			      C ascint32  PROTO  stdcall, lpStringToConvert:dword
+			      C intasc32 PROTO stdcall, lpStringToHoldASCII:dword, dVal:dword
+			      C 
+			      C init PROTO stdcall, lpStartNode:dword, lpAvail:dword, lpPred:dword, lpSucc:dword, 
+			      C 					num:dword, startnode:dword
+			      C getcell PROTO stdcall, lpAvail:dword
+			      C findKey PROTO stdcall, startNode:dword, value:dword, lpPred:dword, lpSucc:dword
+			      C traverse PROTO stdcall, startNode:dword
+			      C insertCell PROTO stdcall, lpStartNode:dword, newcell:dword, pred:dword, succ:dword
+			      C removeCell PROTO stdcall, lpStartNode:dword, lpAvail:dword, cell:dword, pred:dword,
+			      C 						  succ:dword
+			      C listnodes PROTO stdcall, lpStartingAddress:dword
+			      C extern putchar:near32
+			      C 		
+			      C COMMENT!
+			      C /************************************************************************************
+			      C  * Name: intToAscii
+			      C  * Date: 11/14/12
+			      C  * Purpose: To convert integer to ascii characters. Invokes the intasc32 method from 
+			      C 			convutil201211.obj
+			      C  * Parameters:
+			      C 		@param lpStringToConvert
+			      C 		@param iVal
+			      C ************************************************************************************
+			      C !
+			      C intToAscii macro lpStringToHold, iVal
+			      C 	push ebx	;preserve
+			      C 	
+			      C 	lea ebx, [lpStringToHold]	;ebx ->> address of lpStringToHold
+			      C 	INVOKE intasc32, ebx, iVal
+			      C 	
+			      C 	pop ebx		;restore
+			      C endm
+			      C COMMENT!
+			      C /************************************************************************************
+			      C  * Name: asciiToInt
+			      C  * Date: 11/9/12
+			      C  * Purpose: To convert ascii characters to integer. Invokes the ascint32 method from 
+			      C 			convutil201211.obj
+			      C  * Parameters:
+			      C 		@param lpStringToConvert
+			      C 		@param iVal
+			      C ************************************************************************************
+			      C !
+			      C asciiToInt macro lpStringToConvert, iVal
+			      C 	push ebx		;preserve registers
+			      C 	
+			      C 	lea ebx, [lpStringToConvert]	;address of string to convert <-- ebx
+			      C 	INVOKE ascint32, ebx
+			      C 	mov iVal, eax
+			      C 	
+			      C 	pop ebx	;restore
+			      C endm
+			      C 	
+			      C COMMENT!
+			      C /************************************************************************************
+			      C  * Name: getc
+			      C  * Date: 11/9/12
+			      C  * Purpose: To get a character from the keyboard. Calls the getchar method from 
+			      C 			Utility201211.obj
+			      C  * Parameters:
+			      C 		@param char:byte
+			      C ************************************************************************************
+			      C !
+			      C getc macro char
+			      C 	push eax		;preserve register
+			      C 	
+			      C 	call getchar
+			      C 	mov char, al	;get the returned character into the parameter
+			      C 	
+			      C 	pop eax			;restore register	
+			      C endm
+			      C 
+			      C COMMENT!
+			      C /************************************************************************************
+			      C  * Name: putc
+			      C  * Date: 11/9/12
+			      C  * Purpose: To display a character on the screen. Calls the putchar method from 
+			      C 			Utility201211.obj
+			      C  * Parameters:
+			      C 		@param char:byte
+			      C ************************************************************************************* 
+			      C !
+			      C putc macro char 
+			      C 	push eax		;preserve eax
+			      C 	mov al, char	;;get the character passed into AL for the putchar procedure
+			      C 	push eax		;pass parameter to putchar
+			      C 	call putchar 
+			      C 	add esp, 4		;restore stack pointer
+			      C 	pop eax			;restore eax
+			      C endm
+			      C 
+			      C COMMENT!
+			      C /************************************************************************************
+			      C  * Name: newline
+			      C  * Date: 11/9/12
+			      C  * Purpose: Use the putc macro to display a carriage return and line feed to move 
+			      C  *			output to the next line.
+			      C ************************************************************************************
+			      C !	
+			      C newline macro
+			      C 	putc 0Dh		;;carriage return
+			      C 	putc 0Ah		;;new line character
+			      C endm
+			      C 
+			      C COMMENT!
+			      C /************************************************************************************
+			      C  * Name: tab
+			      C  * Date: 11/30/12
+			      C  * Purpose: Use the putc macro to display a tab character
+			      C ************************************************************************************
+			      C !
+			      C tab macro
+			      C 	putc 09h
+			      C endm 
+			      C 
+ 00000000				.data
+
+ 00000020			node	struct
+ 00000000  00000000			key		dword ?
+ 00000004  00000018 [			info	byte	24 dup(?)
+	    00
+	   ]
+ 0000001C  00000000			next	dword ?
+				node	ends
+
+
+ 00000000 00000000		pred	 	dword	?
+ 00000004 00000000		succ		dword	?
+ 00000008 00000054 R		startnode	dword	node3
+ 0000000C 000000B4 R		avail		dword   node6
+ 00000010 00000000		num 		dword 	?
+ 00000014			nodestructure label byte
+ 00000014 00000025 4A 6F	node1	node	<37,"John Henry              ", node2>
+	   68 6E 20 48 65
+	   6E 72 79 20 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   20 20 00000034 R
+ 00000034 00000037 41 6C	node2	node	<55,"Alex Smith              ", -1  >
+	   65 78 20 53 6D
+	   69 74 68 20 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   20 20 FFFFFFFF
+ 00000054 0000000F 42 65	node3	node	<15,"Betty Davis             ", node5  >
+	   74 74 79 20 44
+	   61 76 69 73 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   20 20 00000094 R
+ 00000074 0000001A 46 72	node4	node	<26,"Freddy Washington       ", node1  >
+	   65 64 64 79 20
+	   57 61 73 68 69
+	   6E 67 74 6F 6E
+	   20 20 20 20 20
+	   20 20 00000014 R
+ 00000094 00000012 57 69	node5   node	<18,"Wilson Wallis           ", node4  >
+	   6C 73 6F 6E 20
+	   57 61 6C 6C 69
+	   73 20 20 20 20
+	   20 20 20 20 20
+	   20 20 00000074 R
+ 000000B4 00000000		node6	node	<,,node7>
+	   00000018 [
+	    00
+	   ] 000000D4 R
+ 000000D4 00000000		node7	node	<,,node8>
+	   00000018 [
+	    00
+	   ] 000000F4 R
+ 000000F4 00000000		node8	node	<,,node9>
+	   00000018 [
+	    00
+	   ] 00000114 R
+ 00000114 00000000		node9	node	<,,node10>
+	   00000018 [
+	    00
+	   ] 00000134 R
+ 00000134 00000000		node10	node	<,,-1>
+	   00000018 [
+	    00
+	   ] FFFFFFFF
+ 00000154 0000001B 46 72	node11 	node	<27,"Fred                    ", -1>
+	   65 64 20 20 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   20 20 FFFFFFFF
+ 00000174 0A 0D 00		crlf	byte 10,13,0
+ 00000177  0000000A [		cout 	byte	10 dup(?),0
+	    00
+	   ] 00
+ 00000182 4B 65 79 09 41	strTraverse byte	"Key",9,"Address",9,9,"Info",0
+	   64 64 72 65 73
+	   73 09 09 49 6E
+	   66 6F 00
+ 00000194 4C 69 73 74 6E	strListnodes byte	"Listnodes procedure: printing addresses",0
+	   6F 64 65 73 20
+	   70 72 6F 63 65
+	   64 75 72 65 3A
+	   20 70 72 69 6E
+	   74 69 6E 67 20
+	   61 64 64 72 65
+	   73 73 65 73 00
+ 000001BC 45 6E 74 65 72	EnterKey 	byte	"Enter key to search for ",0
+	   20 6B 65 79 20
+	   74 6F 20 73 65
+	   61 72 63 68 20
+	   66 6F 72 20 00
+ 000001D5 4B 65 79 20 77	keynotfound byte	"Key was not found in the list: ",0
+	   61 73 20 6E 6F
+	   74 20 66 6F 75
+	   6E 64 20 69 6E
+	   20 74 68 65 20
+	   6C 69 73 74 3A
+	   20 00
+ 000001F5 41 64 64 72 65	addressIs	byte	"Address of the node is:",0
+	   73 73 20 6F 66
+	   20 74 68 65 20
+	   6E 6F 64 65 20
+	   69 73 3A 00
+ 0000020D 50 72 65 64 65	strPred		byte 	"Predecessor: ",0
+	   63 65 73 73 6F
+	   72 3A 20 00
+ 0000021B 53 75 63 63 65	strSucc		byte	"Successor: ",0
+	   73 73 6F 72 3A
+	   20 00
+ 00000227 52 65 6D 6F 76	strRemove	byte	"Remove first cell in list: ",0
+	   65 20 66 69 72
+	   73 74 20 63 65
+	   6C 6C 20 69 6E
+	   20 6C 69 73 74
+	   3A 20 00
+ 00000243 54 72 61 76 65	strAvail	byte	"Traversing available nodes: ",0
+	   72 73 69 6E 67
+	   20 61 76 61 69
+	   6C 61 62 6C 65
+	   20 6E 6F 64 65
+	   73 3A 20 00
+ 00000260 54 72 61 76 65	strStart	byte	"Traversing list: ",0
+	   72 73 69 6E 67
+	   20 6C 69 73 74
+	   3A 20 00
+ 00000272 49 6E 73 65 72	strInsert	byte	"Insert cell",0
+	   74 20 63 65 6C
+	   6C 00
+ 0000027E 49 6E 69 74 69	strInit		byte	"Initializing:",0
+	   61 6C 69 7A 69
+	   6E 67 3A 00
+ 00000000				.code
+ 00000000			_start:
+					
+					;INVOKE getcell, addr avail
+					
+					;test the traverse method
+					newline
+ 00000000  50		     2		push eax		
+ 00000001  B0 0D	     2		mov al, 0Dh	
+ 00000003  50		     2		push eax		
+ 00000004  E8 00000000 E     2		call putchar 
+ 00000009  83 C4 04	     2		add esp, 4		
+ 0000000C  58		     2		pop eax			;restore eax
+ 0000000D  50		     2		push eax		
+ 0000000E  B0 0A	     2		mov al, 0Ah	
+ 00000010  50		     2		push eax		
+ 00000011  E8 00000000 E     2		call putchar 
+ 00000016  83 C4 04	     2		add esp, 4		
+ 00000019  58		     2		pop eax			;restore eax
+					INVOKE putstring, addr strTraverse
+					INVOKE traverse, startnode
+					newline
+ 0000002F  50		     2		push eax		
+ 00000030  B0 0D	     2		mov al, 0Dh	
+ 00000032  50		     2		push eax		
+ 00000033  E8 00000000 E     2		call putchar 
+ 00000038  83 C4 04	     2		add esp, 4		
+ 0000003B  58		     2		pop eax			;restore eax
+ 0000003C  50		     2		push eax		
+ 0000003D  B0 0A	     2		mov al, 0Ah	
+ 0000003F  50		     2		push eax		
+ 00000040  E8 00000000 E     2		call putchar 
+ 00000045  83 C4 04	     2		add esp, 4		
+ 00000048  58		     2		pop eax			;restore eax
+					newline
+ 00000049  50		     2		push eax		
+ 0000004A  B0 0D	     2		mov al, 0Dh	
+ 0000004C  50		     2		push eax		
+ 0000004D  E8 00000000 E     2		call putchar 
+ 00000052  83 C4 04	     2		add esp, 4		
+ 00000055  58		     2		pop eax			;restore eax
+ 00000056  50		     2		push eax		
+ 00000057  B0 0A	     2		mov al, 0Ah	
+ 00000059  50		     2		push eax		
+ 0000005A  E8 00000000 E     2		call putchar 
+ 0000005F  83 C4 04	     2		add esp, 4		
+ 00000062  58		     2		pop eax			;restore eax
+					
+					;test the listnodes method
+					INVOKE putstring, addr strListnodes
+					INVOKE listnodes, startnode
+					newline
+ 00000078  50		     2		push eax		
+ 00000079  B0 0D	     2		mov al, 0Dh	
+ 0000007B  50		     2		push eax		
+ 0000007C  E8 00000000 E     2		call putchar 
+ 00000081  83 C4 04	     2		add esp, 4		
+ 00000084  58		     2		pop eax			;restore eax
+ 00000085  50		     2		push eax		
+ 00000086  B0 0A	     2		mov al, 0Ah	
+ 00000088  50		     2		push eax		
+ 00000089  E8 00000000 E     2		call putchar 
+ 0000008E  83 C4 04	     2		add esp, 4		
+ 00000091  58		     2		pop eax			;restore eax
+					newline
+ 00000092  50		     2		push eax		
+ 00000093  B0 0D	     2		mov al, 0Dh	
+ 00000095  50		     2		push eax		
+ 00000096  E8 00000000 E     2		call putchar 
+ 0000009B  83 C4 04	     2		add esp, 4		
+ 0000009E  58		     2		pop eax			;restore eax
+ 0000009F  50		     2		push eax		
+ 000000A0  B0 0A	     2		mov al, 0Ah	
+ 000000A2  50		     2		push eax		
+ 000000A3  E8 00000000 E     2		call putchar 
+ 000000A8  83 C4 04	     2		add esp, 4		
+ 000000AB  58		     2		pop eax			;restore eax
+					
+					;test the findkey method
+					invoke putstring, addr enterkey
+					invoke getstring, addr cout, 11
+					invoke ascint32, addr cout
+
+ 000000CC  A3 00000010 R		mov num, eax
+					INVOKE findkey, startnode, num, addr pred, addr succ
+					
+					;print error if findkey returns -1; print address if not -1
+					.IF(eax == -1)
+						newline
+ 000000F1  50		     2		push eax		
+ 000000F2  B0 0D	     2		mov al, 0Dh	
+ 000000F4  50		     2		push eax		
+ 000000F5  E8 00000000 E     2		call putchar 
+ 000000FA  83 C4 04	     2		add esp, 4		
+ 000000FD  58		     2		pop eax			;restore eax
+ 000000FE  50		     2		push eax		
+ 000000FF  B0 0A	     2		mov al, 0Ah	
+ 00000101  50		     2		push eax		
+ 00000102  E8 00000000 E     2		call putchar 
+ 00000107  83 C4 04	     2		add esp, 4		
+ 0000010A  58		     2		pop eax			;restore eax
+						newline
+ 0000010B  50		     2		push eax		
+ 0000010C  B0 0D	     2		mov al, 0Dh	
+ 0000010E  50		     2		push eax		
+ 0000010F  E8 00000000 E     2		call putchar 
+ 00000114  83 C4 04	     2		add esp, 4		
+ 00000117  58		     2		pop eax			;restore eax
+ 00000118  50		     2		push eax		
+ 00000119  B0 0A	     2		mov al, 0Ah	
+ 0000011B  50		     2		push eax		
+ 0000011C  E8 00000000 E     2		call putchar 
+ 00000121  83 C4 04	     2		add esp, 4		
+ 00000124  58		     2		pop eax			;restore eax
+						invoke putstring, addr keynotfound
+					.else
+						newline
+ 00000131  50		     2		push eax		
+ 00000132  B0 0D	     2		mov al, 0Dh	
+ 00000134  50		     2		push eax		
+ 00000135  E8 00000000 E     2		call putchar 
+ 0000013A  83 C4 04	     2		add esp, 4		
+ 0000013D  58		     2		pop eax			;restore eax
+ 0000013E  50		     2		push eax		
+ 0000013F  B0 0A	     2		mov al, 0Ah	
+ 00000141  50		     2		push eax		
+ 00000142  E8 00000000 E     2		call putchar 
+ 00000147  83 C4 04	     2		add esp, 4		
+ 0000014A  58		     2		pop eax			;restore eax
+						newline
+ 0000014B  50		     2		push eax		
+ 0000014C  B0 0D	     2		mov al, 0Dh	
+ 0000014E  50		     2		push eax		
+ 0000014F  E8 00000000 E     2		call putchar 
+ 00000154  83 C4 04	     2		add esp, 4		
+ 00000157  58		     2		pop eax			;restore eax
+ 00000158  50		     2		push eax		
+ 00000159  B0 0A	     2		mov al, 0Ah	
+ 0000015B  50		     2		push eax		
+ 0000015C  E8 00000000 E     2		call putchar 
+ 00000161  83 C4 04	     2		add esp, 4		
+ 00000164  58		     2		pop eax			;restore eax
+						invoke putstring, addr addressIs
+					.endif
+					
+					;convert value returned by findkey to string
+					INVOKE intasc32, addr cout, eax
+					;print the value
+					INVOKE putstring, addr cout
+					
+					;PRINT PREDECESSOR
+					newline
+ 00000184  50		     2		push eax		
+ 00000185  B0 0D	     2		mov al, 0Dh	
+ 00000187  50		     2		push eax		
+ 00000188  E8 00000000 E     2		call putchar 
+ 0000018D  83 C4 04	     2		add esp, 4		
+ 00000190  58		     2		pop eax			;restore eax
+ 00000191  50		     2		push eax		
+ 00000192  B0 0A	     2		mov al, 0Ah	
+ 00000194  50		     2		push eax		
+ 00000195  E8 00000000 E     2		call putchar 
+ 0000019A  83 C4 04	     2		add esp, 4		
+ 0000019D  58		     2		pop eax			;restore eax
+					newline
+ 0000019E  50		     2		push eax		
+ 0000019F  B0 0D	     2		mov al, 0Dh	
+ 000001A1  50		     2		push eax		
+ 000001A2  E8 00000000 E     2		call putchar 
+ 000001A7  83 C4 04	     2		add esp, 4		
+ 000001AA  58		     2		pop eax			;restore eax
+ 000001AB  50		     2		push eax		
+ 000001AC  B0 0A	     2		mov al, 0Ah	
+ 000001AE  50		     2		push eax		
+ 000001AF  E8 00000000 E     2		call putchar 
+ 000001B4  83 C4 04	     2		add esp, 4		
+ 000001B7  58		     2		pop eax			;restore eax
+					invoke intasc32, addr cout, pred
+					invoke putstring, addr strPred
+					invoke putstring, addr cout
+					
+					;PRINT SUCCESSOR
+					newline
+ 000001DC  50		     2		push eax		
+ 000001DD  B0 0D	     2		mov al, 0Dh	
+ 000001DF  50		     2		push eax		
+ 000001E0  E8 00000000 E     2		call putchar 
+ 000001E5  83 C4 04	     2		add esp, 4		
+ 000001E8  58		     2		pop eax			;restore eax
+ 000001E9  50		     2		push eax		
+ 000001EA  B0 0A	     2		mov al, 0Ah	
+ 000001EC  50		     2		push eax		
+ 000001ED  E8 00000000 E     2		call putchar 
+ 000001F2  83 C4 04	     2		add esp, 4		
+ 000001F5  58		     2		pop eax			;restore eax
+					newline
+ 000001F6  50		     2		push eax		
+ 000001F7  B0 0D	     2		mov al, 0Dh	
+ 000001F9  50		     2		push eax		
+ 000001FA  E8 00000000 E     2		call putchar 
+ 000001FF  83 C4 04	     2		add esp, 4		
+ 00000202  58		     2		pop eax			;restore eax
+ 00000203  50		     2		push eax		
+ 00000204  B0 0A	     2		mov al, 0Ah	
+ 00000206  50		     2		push eax		
+ 00000207  E8 00000000 E     2		call putchar 
+ 0000020C  83 C4 04	     2		add esp, 4		
+ 0000020F  58		     2		pop eax			;restore eax
+					invoke intasc32, addr cout, succ
+					invoke putstring, addr strSucc
+					invoke putstring, addr cout
+					
+					;REMOVE A CELL
+					newline 
+ 00000234  50		     2		push eax		
+ 00000235  B0 0D	     2		mov al, 0Dh	
+ 00000237  50		     2		push eax		
+ 00000238  E8 00000000 E     2		call putchar 
+ 0000023D  83 C4 04	     2		add esp, 4		
+ 00000240  58		     2		pop eax			;restore eax
+ 00000241  50		     2		push eax		
+ 00000242  B0 0A	     2		mov al, 0Ah	
+ 00000244  50		     2		push eax		
+ 00000245  E8 00000000 E     2		call putchar 
+ 0000024A  83 C4 04	     2		add esp, 4		
+ 0000024D  58		     2		pop eax			;restore eax
+					newline
+ 0000024E  50		     2		push eax		
+ 0000024F  B0 0D	     2		mov al, 0Dh	
+ 00000251  50		     2		push eax		
+ 00000252  E8 00000000 E     2		call putchar 
+ 00000257  83 C4 04	     2		add esp, 4		
+ 0000025A  58		     2		pop eax			;restore eax
+ 0000025B  50		     2		push eax		
+ 0000025C  B0 0A	     2		mov al, 0Ah	
+ 0000025E  50		     2		push eax		
+ 0000025F  E8 00000000 E     2		call putchar 
+ 00000264  83 C4 04	     2		add esp, 4		
+ 00000267  58		     2		pop eax			;restore eax
+					invoke putstring, addr strRemove
+					newline
+ 00000272  50		     2		push eax		
+ 00000273  B0 0D	     2		mov al, 0Dh	
+ 00000275  50		     2		push eax		
+ 00000276  E8 00000000 E     2		call putchar 
+ 0000027B  83 C4 04	     2		add esp, 4		
+ 0000027E  58		     2		pop eax			;restore eax
+ 0000027F  50		     2		push eax		
+ 00000280  B0 0A	     2		mov al, 0Ah	
+ 00000282  50		     2		push eax		
+ 00000283  E8 00000000 E     2		call putchar 
+ 00000288  83 C4 04	     2		add esp, 4		
+ 0000028B  58		     2		pop eax			;restore eax
+					invoke removecell, addr startnode, addr avail, startnode, pred, succ
+					
+					;traverse avail
+					newline
+ 000002AD  50		     2		push eax		
+ 000002AE  B0 0D	     2		mov al, 0Dh	
+ 000002B0  50		     2		push eax		
+ 000002B1  E8 00000000 E     2		call putchar 
+ 000002B6  83 C4 04	     2		add esp, 4		
+ 000002B9  58		     2		pop eax			;restore eax
+ 000002BA  50		     2		push eax		
+ 000002BB  B0 0A	     2		mov al, 0Ah	
+ 000002BD  50		     2		push eax		
+ 000002BE  E8 00000000 E     2		call putchar 
+ 000002C3  83 C4 04	     2		add esp, 4		
+ 000002C6  58		     2		pop eax			;restore eax
+					newline
+ 000002C7  50		     2		push eax		
+ 000002C8  B0 0D	     2		mov al, 0Dh	
+ 000002CA  50		     2		push eax		
+ 000002CB  E8 00000000 E     2		call putchar 
+ 000002D0  83 C4 04	     2		add esp, 4		
+ 000002D3  58		     2		pop eax			;restore eax
+ 000002D4  50		     2		push eax		
+ 000002D5  B0 0A	     2		mov al, 0Ah	
+ 000002D7  50		     2		push eax		
+ 000002D8  E8 00000000 E     2		call putchar 
+ 000002DD  83 C4 04	     2		add esp, 4		
+ 000002E0  58		     2		pop eax			;restore eax
+					invoke putstring, addr strAvail
+					newline
+ 000002EB  50		     2		push eax		
+ 000002EC  B0 0D	     2		mov al, 0Dh	
+ 000002EE  50		     2		push eax		
+ 000002EF  E8 00000000 E     2		call putchar 
+ 000002F4  83 C4 04	     2		add esp, 4		
+ 000002F7  58		     2		pop eax			;restore eax
+ 000002F8  50		     2		push eax		
+ 000002F9  B0 0A	     2		mov al, 0Ah	
+ 000002FB  50		     2		push eax		
+ 000002FC  E8 00000000 E     2		call putchar 
+ 00000301  83 C4 04	     2		add esp, 4		
+ 00000304  58		     2		pop eax			;restore eax
+					invoke traverse, avail
+					
+					;traverse startnode
+					newline
+ 00000310  50		     2		push eax		
+ 00000311  B0 0D	     2		mov al, 0Dh	
+ 00000313  50		     2		push eax		
+ 00000314  E8 00000000 E     2		call putchar 
+ 00000319  83 C4 04	     2		add esp, 4		
+ 0000031C  58		     2		pop eax			;restore eax
+ 0000031D  50		     2		push eax		
+ 0000031E  B0 0A	     2		mov al, 0Ah	
+ 00000320  50		     2		push eax		
+ 00000321  E8 00000000 E     2		call putchar 
+ 00000326  83 C4 04	     2		add esp, 4		
+ 00000329  58		     2		pop eax			;restore eax
+					newline
+ 0000032A  50		     2		push eax		
+ 0000032B  B0 0D	     2		mov al, 0Dh	
+ 0000032D  50		     2		push eax		
+ 0000032E  E8 00000000 E     2		call putchar 
+ 00000333  83 C4 04	     2		add esp, 4		
+ 00000336  58		     2		pop eax			;restore eax
+ 00000337  50		     2		push eax		
+ 00000338  B0 0A	     2		mov al, 0Ah	
+ 0000033A  50		     2		push eax		
+ 0000033B  E8 00000000 E     2		call putchar 
+ 00000340  83 C4 04	     2		add esp, 4		
+ 00000343  58		     2		pop eax			;restore eax
+					invoke putstring, addr strStart
+					newline
+ 0000034E  50		     2		push eax		
+ 0000034F  B0 0D	     2		mov al, 0Dh	
+ 00000351  50		     2		push eax		
+ 00000352  E8 00000000 E     2		call putchar 
+ 00000357  83 C4 04	     2		add esp, 4		
+ 0000035A  58		     2		pop eax			;restore eax
+ 0000035B  50		     2		push eax		
+ 0000035C  B0 0A	     2		mov al, 0Ah	
+ 0000035E  50		     2		push eax		
+ 0000035F  E8 00000000 E     2		call putchar 
+ 00000364  83 C4 04	     2		add esp, 4		
+ 00000367  58		     2		pop eax			;restore eax
+					invoke traverse, startnode
+					
+					;insert cell
+					newline
+ 00000373  50		     2		push eax		
+ 00000374  B0 0D	     2		mov al, 0Dh	
+ 00000376  50		     2		push eax		
+ 00000377  E8 00000000 E     2		call putchar 
+ 0000037C  83 C4 04	     2		add esp, 4		
+ 0000037F  58		     2		pop eax			;restore eax
+ 00000380  50		     2		push eax		
+ 00000381  B0 0A	     2		mov al, 0Ah	
+ 00000383  50		     2		push eax		
+ 00000384  E8 00000000 E     2		call putchar 
+ 00000389  83 C4 04	     2		add esp, 4		
+ 0000038C  58		     2		pop eax			;restore eax
+					newline
+ 0000038D  50		     2		push eax		
+ 0000038E  B0 0D	     2		mov al, 0Dh	
+ 00000390  50		     2		push eax		
+ 00000391  E8 00000000 E     2		call putchar 
+ 00000396  83 C4 04	     2		add esp, 4		
+ 00000399  58		     2		pop eax			;restore eax
+ 0000039A  50		     2		push eax		
+ 0000039B  B0 0A	     2		mov al, 0Ah	
+ 0000039D  50		     2		push eax		
+ 0000039E  E8 00000000 E     2		call putchar 
+ 000003A3  83 C4 04	     2		add esp, 4		
+ 000003A6  58		     2		pop eax			;restore eax
+					invoke putstring, addr strInsert
+					newline
+ 000003B1  50		     2		push eax		
+ 000003B2  B0 0D	     2		mov al, 0Dh	
+ 000003B4  50		     2		push eax		
+ 000003B5  E8 00000000 E     2		call putchar 
+ 000003BA  83 C4 04	     2		add esp, 4		
+ 000003BD  58		     2		pop eax			;restore eax
+ 000003BE  50		     2		push eax		
+ 000003BF  B0 0A	     2		mov al, 0Ah	
+ 000003C1  50		     2		push eax		
+ 000003C2  E8 00000000 E     2		call putchar 
+ 000003C7  83 C4 04	     2		add esp, 4		
+ 000003CA  58		     2		pop eax			;restore eax
+ 000003CB  B9 00000154 R		mov ecx, offset node11
+ 000003D0  89 0D 00000010 R		mov num, ecx
+					invoke insertcell, addr startnode, num, pred, succ
+					
+					;traverse startnode
+					newline
+ 000003F2  50		     2		push eax		
+ 000003F3  B0 0D	     2		mov al, 0Dh	
+ 000003F5  50		     2		push eax		
+ 000003F6  E8 00000000 E     2		call putchar 
+ 000003FB  83 C4 04	     2		add esp, 4		
+ 000003FE  58		     2		pop eax			;restore eax
+ 000003FF  50		     2		push eax		
+ 00000400  B0 0A	     2		mov al, 0Ah	
+ 00000402  50		     2		push eax		
+ 00000403  E8 00000000 E     2		call putchar 
+ 00000408  83 C4 04	     2		add esp, 4		
+ 0000040B  58		     2		pop eax			;restore eax
+					newline
+ 0000040C  50		     2		push eax		
+ 0000040D  B0 0D	     2		mov al, 0Dh	
+ 0000040F  50		     2		push eax		
+ 00000410  E8 00000000 E     2		call putchar 
+ 00000415  83 C4 04	     2		add esp, 4		
+ 00000418  58		     2		pop eax			;restore eax
+ 00000419  50		     2		push eax		
+ 0000041A  B0 0A	     2		mov al, 0Ah	
+ 0000041C  50		     2		push eax		
+ 0000041D  E8 00000000 E     2		call putchar 
+ 00000422  83 C4 04	     2		add esp, 4		
+ 00000425  58		     2		pop eax			;restore eax
+					invoke putstring, addr strStart
+					newline
+ 00000430  50		     2		push eax		
+ 00000431  B0 0D	     2		mov al, 0Dh	
+ 00000433  50		     2		push eax		
+ 00000434  E8 00000000 E     2		call putchar 
+ 00000439  83 C4 04	     2		add esp, 4		
+ 0000043C  58		     2		pop eax			;restore eax
+ 0000043D  50		     2		push eax		
+ 0000043E  B0 0A	     2		mov al, 0Ah	
+ 00000440  50		     2		push eax		
+ 00000441  E8 00000000 E     2		call putchar 
+ 00000446  83 C4 04	     2		add esp, 4		
+ 00000449  58		     2		pop eax			;restore eax
+					invoke traverse, startnode
+					
+					;init
+					newline
+ 00000455  50		     2		push eax		
+ 00000456  B0 0D	     2		mov al, 0Dh	
+ 00000458  50		     2		push eax		
+ 00000459  E8 00000000 E     2		call putchar 
+ 0000045E  83 C4 04	     2		add esp, 4		
+ 00000461  58		     2		pop eax			;restore eax
+ 00000462  50		     2		push eax		
+ 00000463  B0 0A	     2		mov al, 0Ah	
+ 00000465  50		     2		push eax		
+ 00000466  E8 00000000 E     2		call putchar 
+ 0000046B  83 C4 04	     2		add esp, 4		
+ 0000046E  58		     2		pop eax			;restore eax
+					newline
+ 0000046F  50		     2		push eax		
+ 00000470  B0 0D	     2		mov al, 0Dh	
+ 00000472  50		     2		push eax		
+ 00000473  E8 00000000 E     2		call putchar 
+ 00000478  83 C4 04	     2		add esp, 4		
+ 0000047B  58		     2		pop eax			;restore eax
+ 0000047C  50		     2		push eax		
+ 0000047D  B0 0A	     2		mov al, 0Ah	
+ 0000047F  50		     2		push eax		
+ 00000480  E8 00000000 E     2		call putchar 
+ 00000485  83 C4 04	     2		add esp, 4		
+ 00000488  58		     2		pop eax			;restore eax
+					invoke putstring, addr strInit
+					newline
+ 00000493  50		     2		push eax		
+ 00000494  B0 0D	     2		mov al, 0Dh	
+ 00000496  50		     2		push eax		
+ 00000497  E8 00000000 E     2		call putchar 
+ 0000049C  83 C4 04	     2		add esp, 4		
+ 0000049F  58		     2		pop eax			;restore eax
+ 000004A0  50		     2		push eax		
+ 000004A1  B0 0A	     2		mov al, 0Ah	
+ 000004A3  50		     2		push eax		
+ 000004A4  E8 00000000 E     2		call putchar 
+ 000004A9  83 C4 04	     2		add esp, 4		
+ 000004AC  58		     2		pop eax			;restore eax
+					invoke init, addr startnode, addr avail, addr pred, addr succ, num, startnode
+					
+					;traverse array of nodes
+					invoke traverse, avail
+					
+					INVOKE ExitProcess,0
+ 000004E4				PUBLIC _start
+					
+					END
+	
+Microsoft (R) Macro Assembler Version 6.11		    12/02/12 11:53:54
+proj5.asm						     Symbols 2 - 1
+
+
+
+
+Macros:
+
+                N a m e                 Type
+
+asciiToInt . . . . . . . . . . .	Proc
+getc . . . . . . . . . . . . . .	Proc
+intToAscii . . . . . . . . . . .	Proc
+newline  . . . . . . . . . . . .	Proc
+putc . . . . . . . . . . . . . .	Proc
+tab  . . . . . . . . . . . . . .	Proc
+
+
+Structures and Unions:
+
+                N a m e                  Size
+                                         Offset      Type
+
+node . . . . . . . . . . . . . .	 00000020
+  key  . . . . . . . . . . . . .	 00000000	 DWord
+  info . . . . . . . . . . . . .	 00000004	 Byte
+  next . . . . . . . . . . . . .	 0000001C	 DWord
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+FLAT . . . . . . . . . . . . . .	GROUP
+STACK  . . . . . . . . . . . . .	32 Bit	 00000100 DWord	  Stack	  'STACK'	 
+_DATA  . . . . . . . . . . . . .	32 Bit	 0000028C DWord	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 000004E4 DWord	  Public  'CODE'	
+
+
+Procedures,  parameters and locals:
+
+                N a m e                 Type     Value    Attr
+
+$$$$$$00001  . . . . . . . . . .	P Near	 00000001 _TEXT	Length= 000004E3 Private
+ExitProcess  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ascint32 . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+findKey  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+getcell  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+getstring  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+init . . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+insertCell . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+intasc32 . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+listnodes  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+putstring  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+removeCell . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+traverse . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 00000000h   
+@DataSize  . . . . . . . . . . .	Number	 00000000h   
+@Interface . . . . . . . . . . .	Number	 00000000h   
+@Model . . . . . . . . . . . . .	Number	 00000007h   
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 FLAT
+@fardata?  . . . . . . . . . . .	Text   	 FLAT
+@fardata . . . . . . . . . . . .	Text   	 FLAT
+@stack . . . . . . . . . . . . .	Text   	 FLAT
+EnterKey . . . . . . . . . . . .	Byte	 000001BC _DATA	
+_start . . . . . . . . . . . . .	L Near	 00000000 _TEXT	Public
+addressIs  . . . . . . . . . . .	Byte	 000001F5 _DATA	
+avail  . . . . . . . . . . . . .	DWord	 0000000C _DATA	
+cout . . . . . . . . . . . . . .	Byte	 00000177 _DATA	
+crlf . . . . . . . . . . . . . .	Byte	 00000174 _DATA	
+keynotfound  . . . . . . . . . .	Byte	 000001D5 _DATA	
+node10 . . . . . . . . . . . . .	node	 00000134 _DATA	
+node11 . . . . . . . . . . . . .	node	 00000154 _DATA	
+node1  . . . . . . . . . . . . .	node	 00000014 _DATA	
+node2  . . . . . . . . . . . . .	node	 00000034 _DATA	
+node3  . . . . . . . . . . . . .	node	 00000054 _DATA	
+node4  . . . . . . . . . . . . .	node	 00000074 _DATA	
+node5  . . . . . . . . . . . . .	node	 00000094 _DATA	
+node6  . . . . . . . . . . . . .	node	 000000B4 _DATA	
+node7  . . . . . . . . . . . . .	node	 000000D4 _DATA	
+node8  . . . . . . . . . . . . .	node	 000000F4 _DATA	
+node9  . . . . . . . . . . . . .	node	 00000114 _DATA	
+nodestructure  . . . . . . . . .	Byte	 00000014 _DATA	
+num  . . . . . . . . . . . . . .	DWord	 00000010 _DATA	
+pred . . . . . . . . . . . . . .	DWord	 00000000 _DATA	
+putchar  . . . . . . . . . . . .	L Near	 00000000 FLAT	External
+startnode  . . . . . . . . . . .	DWord	 00000008 _DATA	
+strAvail . . . . . . . . . . . .	Byte	 00000243 _DATA	
+strInit  . . . . . . . . . . . .	Byte	 0000027E _DATA	
+strInsert  . . . . . . . . . . .	Byte	 00000272 _DATA	
+strListnodes . . . . . . . . . .	Byte	 00000194 _DATA	
+strPred  . . . . . . . . . . . .	Byte	 0000020D _DATA	
+strRemove  . . . . . . . . . . .	Byte	 00000227 _DATA	
+strStart . . . . . . . . . . . .	Byte	 00000260 _DATA	
+strSucc  . . . . . . . . . . . .	Byte	 0000021B _DATA	
+strTraverse  . . . . . . . . . .	Byte	 00000182 _DATA	
+succ . . . . . . . . . . . . . .	DWord	 00000004 _DATA	
+
+	   0 Warnings
+	   0 Errors

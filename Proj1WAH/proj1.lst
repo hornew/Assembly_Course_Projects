@@ -1,0 +1,195 @@
+Microsoft (R) Macro Assembler Version 6.11		    09/21/12 23:29:11
+proj1.asm						     Page 1 - 1
+
+
+				;************************************************************************************
+				; Program Name:	proj1.asm
+				; Programmer:	Austin Horne
+				; Class:		CSCI 2160
+				; Lab:			Proj1
+				; Date:			September 27, 2012
+				; Purpose:		To evaluate a set of given mathematical equations expressed in Java
+				;				notation. The variables are defined in the data segment.
+				;					bVal 3 = bVal1 + bVal2
+				;					sVal3 [0] = sVal1[0] + sVal2[0]
+				;					sVal3 [1] = sVal1[1] + sVal2[2]
+				;					sVal3 [2] = sVal1[2] + sVal2[2]
+				;					iNum3 = iNum1 + iNum2
+				;					sVal4 = (bVal2 + sVal1[1] + iNum2 ) 
+				;					iNum4=  bVal1 + sVal3[2] + iNum1 
+				;
+				;************************************************************************************
+
+						.486
+						.model flat
+						ExitProcess PROTO NEAR32 stdcall, dwExitCode:DWORD
+						
+						.stack 100h		
+						
+						;beginning of the data segment
+ 00000000					.data
+						
+ 00000000 FF						bVal1	byte 	-1			;byte holding decimal -1, referenced by bVal1
+ 00000001 13						bVal2	byte	19			;byte holding decimal 19, referenced by bVal2
+ 00000002 00						bVal3	byte	?			;unassigned byte referenced by bVal3
+ 00000003 001B 0027 FFFE				sVal1	word	27,39, -2	;an array of words referenced by sVal1
+ 00000009 0025 0019 0013				sVal2	word	37, 25, 19	;an array of words referenced by sVal2
+ 0000000F  00000003 [					sVal3	word	3 dup(?)	;an array of words referenced by sVal3
+	    0000
+	   ]
+ 00000015 0000						sVal4	word	?			;unassigned word referenced by sVal4
+ 00000017 FFFFFFFF					iNum1	dword	-1			;decimal -1 as a dword, referenced by iNum1
+ 0000001B 0000002B					iNum2	dword  	43			;decimal 43 as a dword, referenced by iNum2
+ 0000001F 00000000					iNum3	dword  	?			;unassigned dword, referenced by iNum3
+ 00000023 00000000					iNum4	dword 	?			;unassigned dword, referenced by iNum4
+						;end of data segment
+						
+						;beginning of code segment
+ 00000000					.code
+ 00000000					_start:
+ 00000000					
+							;Problem a)
+							;bVal1 reference is moved into the AL register so that addition of bVal1
+							;and bVal2 can be performed. Result is moved to bVal3.
+ 00000000  A0 00000000 R				mov al, bVal1	
+ 00000005  02 05 00000001 R				add al, bVal2
+ 0000000B  A2 00000002 R				mov bVal3, al
+							
+							;Problem b-1
+							;sVal1 is moved into the 2 byte register AX so that addition of sVal1 and
+							;sVal2 can be performed. Result is stored in sVal3.
+ 00000010  66| A1					mov ax, sVal1	
+	   00000003 R
+ 00000016  66| 03 05					add ax, sVal2
+	   00000009 R
+ 0000001D  66| A3					mov sVal3, ax
+	   0000000F R
+							
+							;Problem b-2
+							;The second value in the sVal1 array, referenced by sVal1 with offset of 
+							;2, is moved into the 2 byte register AX so that addition of the second
+							;value in array sVal1 and the third value in array sVal2 can be 
+							;performed. Result of the addition is stored in the second position in
+							;the sVal3 array at offset 2.
+ 00000023  66| A1					mov ax, sVal1[2]	
+	   00000005 R
+ 00000029  66| 03 05					add ax, sVal2[4]
+	   0000000D R
+ 00000030  66| A3					mov sVal3[2], ax
+	   00000011 R
+							
+							;Problem b-3
+							;The third value in the sVal1 array, referenced by sVal1 with offset of 
+							;4, is moved into the 2 byte register AX so that addition of the third
+							;value in array sVal1 and the third value in array sVal2 can be 
+							;performed. Result of the addition is stored in the third position in 
+							;the sVal3 array at offset 4.
+ 00000036  66| A1					mov ax, sVal1[4]	
+	   00000007 R
+ 0000003C  66| 03 05					add ax, sVal2[4]
+	   0000000D R
+ 00000043  66| A3					mov sVal3[4], ax
+	   00000013 R
+							
+							;Problem c
+							;iNum2 reference is moved into the 4 byte eax register so that addition 
+							;of iNum2 and iNum1 can be performed. Result of the addition is stored in
+							;iNum3.
+ 00000049  A1 0000001B R				mov eax, iNum2	
+ 0000004E  03 05 00000017 R				add eax, iNum1
+ 00000054  A3 0000001F R				mov iNum3, eax
+							
+							;Problem d
+							;Second value in the sVal1 array is sign extended and moved into the 4 
+							;byte register ebx so that type matches the dword iNum2 and addition of
+							;the two can be performed. bVal2 is then sign extended and moved into
+							;ebx for addition with the previous result. Final result is moved into
+							;the 2 byte register bx using a word pointer and, finally, the value
+							;in bx is moved to our destination variable, sVal4.
+ 00000059  0F BF 1D					movsx ebx, sVal1[2]
+	   00000005 R
+ 00000060  01 1D 0000001B R				add iNum2, ebx
+ 00000066  0F BE 1D					movsx ebx, bVal2
+	   00000001 R
+ 0000006D  01 1D 0000001B R				add iNum2, ebx
+ 00000073  66| 8B 1D					mov bx, word ptr iNum2
+	   0000001B R
+ 0000007A  66| 89 1D					mov sVal4, bx
+	   00000015 R
+							
+							;Problem e
+							;The dword value iNum1 is moved into the eax register for addition with
+							;bVal1 which is moved and sign extended into the ebx register so that 
+							;its type will match the type of iNum1. The ebx register is then added
+							;into the eax register. The third value in the array referenced by sVal3
+							;is then moved and signed extended into the ebx register for addition 
+							;with the value in eax. Result of the addition is stored in iNum4.
+ 00000081  A1 00000017 R				mov eax, iNum1			
+ 00000086  0F BE 1D					movsx ebx, bVal1
+	   00000000 R
+ 0000008D  03 C3					add eax, ebx
+ 0000008F  0F BF 1D					movsx ebx, sVal3[4]
+	   00000013 R
+ 00000096  03 C3					add eax, ebx
+ 00000098  A3 00000023 R				mov iNum4, eax
+							
+							;end of code segment
+						INVOKE  ExitProcess,0		
+ 000000A4					PUBLIC  _start
+						
+						END	;end of proj1.asm
+
+						
+
+Microsoft (R) Macro Assembler Version 6.11		    09/21/12 23:29:11
+proj1.asm						     Symbols 2 - 1
+
+
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+FLAT . . . . . . . . . . . . . .	GROUP
+STACK  . . . . . . . . . . . . .	32 Bit	 00000100 DWord	  Stack	  'STACK'	 
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000027 DWord	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 000000A4 DWord	  Public  'CODE'	
+
+
+Procedures,  parameters and locals:
+
+                N a m e                 Type     Value    Attr
+
+$$$$$$00001  . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 000000A4 Private
+ExitProcess  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 00000000h   
+@DataSize  . . . . . . . . . . .	Number	 00000000h   
+@Interface . . . . . . . . . . .	Number	 00000000h   
+@Model . . . . . . . . . . . . .	Number	 00000007h   
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 FLAT
+@fardata?  . . . . . . . . . . .	Text   	 FLAT
+@fardata . . . . . . . . . . . .	Text   	 FLAT
+@stack . . . . . . . . . . . . .	Text   	 FLAT
+_start . . . . . . . . . . . . .	L Near	 00000000 _TEXT	Public
+bVal1  . . . . . . . . . . . . .	Byte	 00000000 _DATA	
+bVal2  . . . . . . . . . . . . .	Byte	 00000001 _DATA	
+bVal3  . . . . . . . . . . . . .	Byte	 00000002 _DATA	
+iNum1  . . . . . . . . . . . . .	DWord	 00000017 _DATA	
+iNum2  . . . . . . . . . . . . .	DWord	 0000001B _DATA	
+iNum3  . . . . . . . . . . . . .	DWord	 0000001F _DATA	
+iNum4  . . . . . . . . . . . . .	DWord	 00000023 _DATA	
+sVal1  . . . . . . . . . . . . .	Word	 00000003 _DATA	
+sVal2  . . . . . . . . . . . . .	Word	 00000009 _DATA	
+sVal3  . . . . . . . . . . . . .	Word	 0000000F _DATA	
+sVal4  . . . . . . . . . . . . .	Word	 00000015 _DATA	
+
+	   0 Warnings
+	   0 Errors

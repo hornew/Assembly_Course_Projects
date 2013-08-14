@@ -1,0 +1,676 @@
+Microsoft (R) Macro Assembler Version 6.11		    11/13/12 02:45:23
+myutility.asm						     Page 1 - 1
+
+
+				;************************************************************************************
+				; Program Name:	myutility.asm
+				; Programmer:	Austin Horne
+				; Class:		CSCI 2160
+				; Lab:			Proj4
+				; Date:			November 13, 2012
+				; Purpose:		Contain certain utility methods which could be used for multiple
+				;				projects. 
+				;				Contains:
+				;						getPassword
+				;						stringLength
+				;
+				;************************************************************************************
+
+					.486
+					.model flat
+					extern getchar:near32, putchar:near32
+					.stack 100h	
+
+ 00000000				.data
+				;COMMENT!
+				;/***********************************************************************************
+				; * Name: putc
+				; * Date: 11/9/12
+				; * Purpose: To display a character on the screen. Calls the putchar method from 
+				;			Utility201211.obj
+				; * Parameters:
+				;		@param char:byte
+				;************************************************************************************
+				;!
+				putc macro char 
+					push eax		;preserve eax
+					mov al, char	;;get the character passed into AL for the putchar procedure
+					push eax		;pass parameter to putchar
+					call putchar 
+					add esp, 4		;restore stack pointer
+					pop eax			;restore eax
+				endm
+
+				;COMMENT!
+				;/************************************************************************************
+				; * Name: getc
+				; * Date: 11/9/12
+				; * Purpose: To get a character from the keyboard. Calls the getchar method from 
+				;			Utility201211.obj
+				; * Parameters:
+				;		@param char:byte
+				;************************************************************************************
+				;!
+				getc macro char
+					push eax		;preserve register
+					
+					call getchar
+					mov char, al	;get the returned character into the parameter
+					
+					pop eax			;restore register	
+				endm
+ 00000000				.code
+					
+				;COMMENT !
+				;/***********************************************************************************
+				; * Method Name: getPassword
+				; * Method Purpose: get a password from the keyboard up to a max length passed as the
+				; * 				   second parameter. Display an asterisk for every character 
+				; *				   entered. Test the password for correct values. Disallows any
+				; *				   character not in the set [a-z],[A-Z],[0-9], or [!@#$%*]. First 
+				; * 				   character must be alphabetical. Password must contain 1 
+				; *				   lowercase alpha, 1 uppercase alpha, 1 digit, and 1 special.
+				; *
+				; * Date created: 11/5/2012
+				; * Date last modified: 11/12/2012
+				; *
+				; * Parameters:	
+				; *		@param lpPassword:dword	[ebp+12]
+				; *		@param dMaxLength:dword	[ebp+8]
+				; ***********************************************************************************
+				; !
+				 
+ 00000000			getpassword PROC
+
+ 00000000  55				push ebp		;preserve the base pointer
+ 00000001  8B EC			mov ebp, esp	;set the stack frame
+ 00000003  53				push ebx		;ebx used to reference starting address of strPassword
+ 00000004  51				push ecx		;ecx used to look at strPassword byte by byte (cl)
+ 00000005  57				push edi		;edi used as a counter
+ 00000006  56				push esi		;stores the length of the password entered
+
+ 00000007  83 EC 04			sub esp, 4		;reserve space for local variable	
+ = dword ptr [ebp-16]		minLength_Local equ dword ptr [ebp-16]	;holds minimum password legnth.
+ 0000000A  C7 45 F0			mov minLength_Local, 6	;the minimum password legnth allowed
+	   00000006
+
+ = 0000002A			asterisk equ 02Ah	
+ = 00000008			backspace equ 08h	;labels for ascii key codes
+ = 0000000D			enterkey equ 0Dh
+ = 00000020			space equ 020h
+
+ = [ebp+8]			pwLength equ [ebp+8]	;the length parameter
+ 00000011  8B 5D 0C			mov ebx, [ebp+12]	;starting address of the string to hold
+ 00000014  33 FF			xor edi, edi		;edi  = character counter, starting at 0
+
+ 00000016			getInput:	
+ 00000016  E8 00000000 E		call getchar		;get character for the password
+ 0000001B  3C 0D			cmp al, enterkey			;check for enter key
+ 0000001D  74 4B			je done
+ 0000001F  3C 08			cmp al, backspace			;check for backspace pressed
+ 00000021  74 18			je backspacePressed
+ 00000023  3B 7D 08			cmp edi, pwLength	;if password has reached length limit
+ 00000026  74 EE			je getInput			;go back to beginning
+					
+				putc asterisk			;display an asterisk	
+ 00000028  50		     1		push eax		
+ 00000029  B0 2A	     1		mov al, asterisk	
+ 0000002B  50		     1		push eax		
+ 0000002C  E8 00000000 E     1		call putchar 
+ 00000031  83 C4 04	     1		add esp, 4		
+ 00000034  58		     1		pop eax			;restore eax
+ 00000035  88 04 1F			mov [ebx+edi], al	;move input character into current index in string
+ 00000038  47				inc edi				;count 1 character
+ 00000039  EB DB			jmp getInput		;get more characters after asterisk displayed
+					
+ 0000003B			backspacePressed:
+ 0000003B  83 FF 00			cmp edi, 0			;check to see if character count = 0
+ 0000003E  74 D6			je getInput
+ 00000040  4F				dec edi				;-1 from character count
+				putc backspace			;move back one space
+ 00000041  50		     1		push eax		
+ 00000042  B0 08	     1		mov al, backspace	
+ 00000044  50		     1		push eax		
+ 00000045  E8 00000000 E     1		call putchar 
+ 0000004A  83 C4 04	     1		add esp, 4		
+ 0000004D  58		     1		pop eax			;restore eax
+				putc space				;overwrite character with a space
+ 0000004E  50		     1		push eax		
+ 0000004F  B0 20	     1		mov al, space	
+ 00000051  50		     1		push eax		
+ 00000052  E8 00000000 E     1		call putchar 
+ 00000057  83 C4 04	     1		add esp, 4		
+ 0000005A  58		     1		pop eax			;restore eax
+				putc backspace			;move cursor back after overwrite
+ 0000005B  50		     1		push eax		
+ 0000005C  B0 08	     1		mov al, backspace	
+ 0000005E  50		     1		push eax		
+ 0000005F  E8 00000000 E     1		call putchar 
+ 00000064  83 C4 04	     1		add esp, 4		
+ 00000067  58		     1		pop eax			;restore eax
+ 00000068  EB AC			jmp getInput
+					
+ 0000006A			done:					;enter key pressed. finished getting characters
+ 0000006A  32 C0			xor al, al
+ 0000006C  88 04 1F			mov [ebx+edi], al 	;null-terminate the string
+ 0000006F  53				push ebx			;beginning address of the password
+ 00000070  E8 000002CC			call stringLength		;use the stringLength method to check the length of the
+											;password that the user entered
+ 00000075  83 C4 04			add esp, 4				;restore stack pointer
+ 00000078  8B F0			mov esi, eax			;store the string length in esi so eax can be cleared
+ 0000007A  33 C0			xor eax, eax			;prime al to hold error check
+
+				;error00	length requirements not met
+ 0000007C  3B 75 F0			cmp esi, minLength_Local	;check for minimum length
+ 0000007F  0F 8C 000001C5		jl error0fail
+ 00000085  3B 75 08			cmp esi, pwLength			;check for length greater than specified
+ 00000088  0F 8F 000001BC		jg error0fail
+					
+ 0000008E			error01:	;first character not alphabetic
+ 0000008E  8B 0B			mov ecx, [ebx]
+ 00000090  F6 C1 80			test cl, 10000000b		;check for 80h and above
+ 00000093  0F 85 000001BA		jnz error1fail
+ 00000099  F6 C1 40			test cl, 01000000b		;test for character code from 40h to 7Fh
+ 0000009C  0F 84 000001B1		jz error1fail
+ 000000A2  F6 C1 1F			test cl, 00011111b		;test for character code 60h or 40h
+ 000000A5  0F 84 000001A8		jz error1fail
+ 000000AB  F6 C1 10			test cl, 00010000b		;test for character code 50h-5Fh or 70h-7Fh
+ 000000AE  74 1C			jz error02				;skip to next error check if not
+ 000000B0  F6 C1 08			test cl, 00001000b		;test for 58-5F or 78-7F
+ 000000B3  74 17			jz error02				;skip to next error check if not
+ 000000B5  F6 C1 04			test cl, 00000100b		;test for 5C-5F or 7C-7F
+ 000000B8  0F 85 00000195		jnz error1fail			;if 5C-5F or 7C-7F, fail test
+ 000000BE  F6 C1 02			test cl, 00000010b		;test for 5A-5B or 7A-7B
+ 000000C1  74 09			jz error02				;if not, allow and skip to next error check
+ 000000C3  F6 C1 01			test cl, 00000001b		;check for 5B or 7B
+ 000000C6  0F 85 00000187		jnz error1fail	
+					
+ 000000CC			error02:	;check for lowercase alpha
+ 000000CC  BF FFFFFFFF			mov edi, -1
+					
+ 000000D1			beginning02:
+ 000000D1  47				inc edi					;counter + 1
+ 000000D2  3B FE			cmp edi, esi			;counter reached the length of the password?
+ 000000D4  0F 84 00000180		je error2fail			;only reached when no lowercase alphas are found
+ 000000DA  8B 0C 1F			mov ecx, [ebx+edi]		;ecx --> value at address in strPassword[edi]
+ 000000DD  F6 C1 40			test cl, 01000000b		;between 40h - 7Fh
+ 000000E0  74 EF			jz beginning02			;check next character
+ 000000E2  F6 C1 20			test cl, 00100000b		;60h-7Fh?
+ 000000E5  74 EA			jz beginning02			;check next character
+ 000000E7  F6 C1 1F			test cl, 00011111b		;60h?
+ 000000EA  74 E5			jz beginning02			;check next
+ 000000EC  F6 C1 10			test cl, 00010000b		;70h-7Fh?
+ 000000EF  74 1B			jz error03				;if 61h-6Fh (lowercase alpha), skip to next error check
+ 000000F1  F6 C1 0F			test cl, 00001111b		;70h?
+ 000000F4  74 16			jz error03				;if 70h (lowercase p), skip to next
+ 000000F6  F6 C1 08			test cl, 00001000b		;78h-7Fh?
+ 000000F9  74 11			jz error03				;if 70h-77h (lowercase alpha), skip to next error check
+ 000000FB  F6 C1 04			test cl, 00000100b		;7C-7Fh?
+ 000000FE  75 D1			jnz beginning02			;Yes, check next
+ 00000100  F6 C1 02			test cl, 00000010b		;7A-7B?
+ 00000103  74 07			jz error03				;No, skip to next error check
+ 00000105  F6 C1 01			test cl, 00000001b		;7A?
+ 00000108  74 02			jz error03				;if 7Ah (lowercase alpha), skip to next error check
+ 0000010A  EB C5			jmp beginning02			;check next
+					
+ 0000010C			error03:	;check for uppercase alpha
+ 0000010C  BF FFFFFFFF			mov edi, -1
+ 00000111			beginning03:
+					
+ 00000111  47				inc edi					;counter + 1
+ 00000112  3B FE			cmp edi, esi			;counter reached the length of the password?
+ 00000114  0F 84 00000147		je error3fail			;only reached when no uppercase alphas are found
+ 0000011A  8B 0C 1F			mov ecx, [ebx+edi]		;ecx --> value at address in strPassword[edi]
+ 0000011D  F6 C1 40			test cl, 01000000b		;40h-7Fh?
+ 00000120  74 EF			jz beginning03			;No. check next
+ 00000122  F6 C1 BF			test cl, 10111111b		;40h?
+ 00000125  74 EA			jz beginning03			;Yes. Check next
+ 00000127  F6 C1 20			test cl, 00100000b		;60h-7Fh?
+ 0000012A  75 E5			jnz beginning03			;Yes. check next
+ 0000012C  F6 C1 10			test cl, 00010000b		;50h-5Fh?
+ 0000012F  74 16			jz error04				;Not 50 - 5F. Uppercase found, skip next
+ 00000131  F6 C1 08			test cl, 00001000b		;58h - 5Fh?
+ 00000134  74 11			jz error04				;not 58h -5Fh. Uppercase, skip.
+ 00000136  F6 C1 04			test cl, 00000100b		;5C - 5F?
+ 00000139  75 D6			jnz beginning03			;5C - 5F, check next
+ 0000013B  F6 C1 02			test cl, 00000010b		;5A-5B?
+ 0000013E  74 07			jz error04				;No. Uppercase, skip
+ 00000140  F6 C1 01			test cl, 00000001b		;5B?
+ 00000143  74 02			jz error04				;No, 5A. passed
+ 00000145  EB CA			jmp beginning03
+					
+					
+ 00000147			error04:		;check for special character @!$#%*
+ 00000147  BF FFFFFFFF			mov edi, -1
+ 0000014C			beginning04:
+					
+ 0000014C  47				inc edi					;counter + 1
+ 0000014D  3B FE			cmp edi, esi			;counter reached the length of the password?
+ 0000014F  0F 84 00000113		je error4fail			;only reached when no special characters are found
+ 00000155  8B 0C 1F			mov ecx, [ebx+edi]		;ecx --> value at address in strPassword[edi]
+ 00000158  F6 C1 DD			test cl, 11011101b		;22h (") or 20h ( )?
+ 0000015B  74 EF			jz beginning04			;Yes. not special. check next character
+ 0000015D  F6 C1 BF			test cl, 10111111b		;40h (@)?
+ 00000160  74 22			jz error05				;Yes. Skip to next test
+ 00000162  F6 C1 DE			test cl, 11011110b		;21h (!)?
+ 00000165  74 1D			jz error05				;Yes. Skip to next test
+ 00000167  F6 C1 DB			test cl, 11011011b		;24h ($)?
+ 0000016A  74 18			jz error05				;Yes. Skip to next test
+ 0000016C  F6 C1 DC			test cl, 11011100b		;23h (#)?
+ 0000016F  74 13			jz error05				;Yes. Skip to next test
+ 00000171  F6 C1 DA			test cl, 11011010b		;25h (%)?
+ 00000174  74 0E			jz error05				;Yes. Skip to next test
+ 00000176  F6 C1 D5	test cl, 11010101b		;28h or 2Ah (*)?
+ 00000179  74 02			jz bit1check			;Yes, check to see which one
+ 0000017B  EB CF			jmp beginning04			;if no special characters found, check next character
+
+ 0000017D			bit1check:
+ 0000017D  F6 C1 07			test cl, 00000111b		;28h?
+ 00000180  74 CA			jz beginning04			;Yes. No special character found, back to check next
+ 00000182  EB 00			jmp error05				;Only reached when character is 2Ah (*)
+					
+ 00000184			error05:		;check for numerics
+ 00000184  BF FFFFFFFF			mov edi, -1	
+ 00000189			beginning05:
+ 00000189  47				inc edi					;counter + 1
+ 0000018A  3B FE			cmp edi, esi			;counter reached the length of the password?
+ 0000018C  0F 84 000000DD		je error5fail			;only reached when no numerics are found
+ 00000192  8B 0C 1F			mov ecx, [ebx+edi]		;ecx --> value at address in strPassword[edi]
+ 00000195  F6 C1 C0			test cl, 11000000b		;character code > 3Fh?
+ 00000198  75 EF			jnz beginning05			;Yes. check next
+ 0000019A  F6 C1 20			test cl, 00100000b		;character code < 20h?
+ 0000019D  74 EA			jz beginning05			;Yes. check next
+ 0000019F  F6 C1 10			test cl, 00010000b		;character code < 30h?
+ 000001A2  74 E5			jz beginning05			;Yes. check next
+ 000001A4  F6 C1 08			test cl, 00001000b		;38h-3Fh?
+ 000001A7  74 0C			jz error06				;No. Passed numeric test
+ 000001A9  F6 C1 04			test cl, 00000100b		;3Ch-3Fh?
+ 000001AC  75 DB			jnz beginning05			;Yes. check next
+ 000001AE  F6 C1 02			test cl, 00000010b		;3Ah-3Bh?
+ 000001B1  75 D6			jnz beginning05			;Yes check next
+ 000001B3  EB 00			jmp error06				;is 30-39. passed test
+					
+ 000001B5			error06:		;check for invalid characters
+ 000001B5  BF FFFFFFFF			mov edi, -1	
+ 000001BA			beginning06:
+ 000001BA  47				inc edi					;counter + 1
+ 000001BB  3B FE			cmp edi, esi			;counter reached the length of the password?
+ 000001BD  0F 84 000000B5		je exit					;only reached when no invalid characters are entered
+ 000001C3  8B 0C 1F			mov ecx, [ebx+edi]		;ecx --> value at address in strPassword[edi]
+ 000001C6  F6 C1 DD			test cl, 11011101b		;22h (") or 20h ( )?
+ 000001C9  0F 84 000000A7		jz error6fail			;Yes. invalid character
+ 000001CF  F6 C1 F0			test cl, 11110000b		;0h-09h?
+ 000001D2  0F 84 0000009E		jz error6fail			;Yes. invalid character
+ 000001D8  F6 C1 E0			test cl, 11100000b		;10h-1Fh?
+ 000001DB  0F 84 00000095		jz error6fail			;Yes. invalid character
+ 000001E1  F6 C1 D0			test cl, 11010000b		;20h-2Fh?
+ 000001E4  74 16			jz bit5					;yes. jump to check
+ 000001E6  F6 C1 C0			test cl, 11000000b		;30h-3Fh?
+ 000001E9  74 31			jz bit4and5				;yes. just to check
+ 000001EB  F6 C1 10			test cl, 00010000b		;50h-5Fh or 70h-7Fh?
+ 000001EE  75 3D			jnz bit4				;yes, check
+ 000001F0  F6 C1 9F			test cl, 10011111b		;40h or 60h?
+ 000001F3  75 C5			jnz beginning06			;No. check next
+ 000001F5  F6 C1 20			test cl, 00100000b		;60h?
+ 000001F8  75 7C			jnz error6fail			;Yes. fail test!
+ 000001FA  EB BE			jmp beginning06			;check next
+					
+ 000001FC			bit5:
+ 000001FC  F6 C1 D7			test cl, 11010111b		;28h (?
+ 000001FF  74 75			jz error6fail			;yes, fail test
+ 00000201  F6 C1 DE			test cl, 11011110b		;21h (!)?
+ 00000204  74 B4			jz beginning06			;Yes. Skip to next test
+ 00000206  F6 C1 DB			test cl, 11011011b		;24h ($)?
+ 00000209  74 AF			jz beginning06			;Yes. Skip to next test
+ 0000020B  F6 C1 DC			test cl, 11011100b		;23h (#)?
+ 0000020E  74 AA			jz beginning06			;Yes. Skip to next test
+ 00000210  F6 C1 DA			test cl, 11011010b		;25h (%)?
+ 00000213  74 A5			jz beginning06			;Yes. Skip to next test
+ 00000215  F6 C1 D5			test cl, 11010101b		;2Ah (*)
+ 00000218  74 A0			jz beginning06			;Yes. Skip to next test
+ 0000021A  EB 5A			jmp error6fail			;failed test
+					
+ 0000021C			bit4and5:
+ 0000021C  F6 C1 08			test cl, 00001000b		;38-3Fh?
+ 0000021F  74 99			jz beginning06			;No. check next
+ 00000221  F6 C1 04			test cl, 00000100b		;3Ch-3Fh?
+ 00000224  75 50			jnz error6fail			;yes, fail test
+ 00000226  F6 C1 02			test cl, 00000010b		;3Ah-3Bh?
+ 00000229  75 4B			jnz error6fail			;yes, fail test
+ 0000022B  EB 8D			jmp beginning06			;check next
+					
+ 0000022D			bit4:
+ 0000022D  F6 C1 08			test cl, 00001000b		;58h-5Fh or 78h-7Fh?
+ 00000230  74 88			jz beginning06			;No. check next
+ 00000232  F6 C1 04			test cl, 00000100b		;5Ch-5Fh or 7Ch-7Fh?
+ 00000235  75 3F			jnz error6fail			;yes, fail test
+ 00000237  F6 C1 02			test cl, 00000010b		;5Ah-5Bh or 7Ah-7Bh?
+ 0000023A  0F 84 FFFFFF7A		jz beginning06			;No. check next
+ 00000240  F6 C1 01			test cl, 00000001b		;5Bh or 7Bh?
+ 00000243  75 31			jnz error6fail			;yes, fail test
+ 00000245  E9 FFFFFF70			jmp beginning06			;No. check next
+					
+ 0000024A			error0fail:					;password too long or too short
+
+ 0000024A  32 C0			xor al, al					;clear al
+ 0000024C  0C 01			or al, 00000001b			;turn on bit 0. Signifies password length incorrect
+ 0000024E  E9 FFFFFE3B			jmp error01					;jump to next error check
+					
+ 00000253			error1fail:
+ 00000253  0C 02			or al, 00000010b			;turn on bit 1. Signifies incorrect first character
+ 00000255  E9 FFFFFE72			jmp error02
+					
+ 0000025A			error2fail:
+ 0000025A  0C 04			or al, 00000100b			;turn on bit 2. Signifies no lowercase alphas
+ 0000025C  E9 FFFFFEAB			jmp error03
+					
+ 00000261			error3fail:
+ 00000261  0C 08			or al, 00001000b			;turn on bit 3. Siginifies no uppercase alphas
+ 00000263  E9 FFFFFEDF			jmp error04
+
+ 00000268			error4fail:
+ 00000268  0C 10			or al, 00010000b			;turn on bit 4. Signifies no special characters
+ 0000026A  E9 FFFFFF15			jmp error05
+					
+ 0000026F			error5fail:
+ 0000026F  0C 20			or al, 00100000b			;turn on bit 5. Signifies no numerics
+ 00000271  E9 FFFFFF3F			jmp error06
+					
+ 00000276			error6fail:
+ 00000276  0C 40			or al, 01000000b			;turn on bit 6. Signifies invalid characters
+					
+ 00000278			exit:
+
+ 00000278  83 C4 04			add esp, 4		;get local variable off the stack
+ 0000027B  5E				pop esi
+ 0000027C  5F				pop edi
+ 0000027D  59				pop ecx			;restore registers
+ 0000027E  5B				pop ebx
+ 0000027F  5D				pop ebp			;restore base pointer
+ 00000280  C3				ret				
+ 00000281			getpassword endp
+
+				COMMENT!
+				/***********************************************************************************
+				 * Method Name: getNum
+				 * Method Purpose: Get a numeric value from the user. Validate it to be a valid 
+				 *				   number.
+				 *
+				 *
+				 * Date created: 11/12/2012
+				 * Date last modified: 11/13/2012
+				 *
+				 * Parameters:	
+				 *		@param lpStringToHoldNumericChars:dword
+				 *      @param dLength:dword
+				 *
+				 ***********************************************************************************
+				 !
+ 00000281			 getNum PROC
+				 
+ 00000281  55				push ebp		;preserve base pointer
+ 00000282  8B EC			mov ebp, esp	;set the stack frame
+ 00000284  50				push eax
+ 00000285  53				push ebx		;preserve registers
+ 00000286  57				push edi
+ 00000287  56				push esi
+					
+ = [ebp+12]			maxNumLength equ [ebp+12]		;2nd parameter. Max length of the number
+ 00000288  8B 5D 08			mov ebx, [ebp+8]			;ebx --> address of the string to hold
+					
+ = 0000002A			asterisk equ 02Ah	
+ = 00000008			backspace equ 08h	;labels for ascii key codes
+ = 0000000D			enterkey equ 0Dh
+ = 00000020			space equ 020h
+					
+ 0000028B  33 F6			xor esi, esi		;esi  = character counter, starting at 0
+ 0000028D  33 FF			xor edi, edi		;counts non-zero numbers
+					
+ 0000028F			getInput:	
+ 0000028F  E8 00000000 E		call getchar		;get character for the password
+ 00000294  3C 0D			cmp al, enterkey	;check for enter key
+ 00000296  0F 84 0000009A		je done
+ 0000029C  3C 08			cmp al, backspace	;check for backspace pressed
+ 0000029E  74 5A			je backspacePressed
+ 000002A0  3B 75 0C			cmp esi, maxNumLength	;if password has reached length limit
+ 000002A3  74 EA			je getInput			;go back to beginning
+					
+ 000002A5  A8 80			test al, 10000000b	;check for bit 7 on
+ 000002A7  75 E6			jnz getInput		;not numeric or + -
+ 000002A9  A8 40			test al, 01000000b	;check for bit 6 on (40h-7Fh)
+ 000002AB  75 E2			jnz getInput		;not numeric or + -
+ 000002AD  A8 20			test al, 00100000b	;check for bit 5 off (20h-3Fh)
+ 000002AF  74 DE			jz getInput			;less than 20h, greater than 09h, not numeric or + -
+ 000002B1  A8 F0			test al, 11110000b	;00h-09h?
+ 000002B3  74 DA			jz getInput			;Yes. invalid
+ 000002B5  A8 10			test al, 00010000b	;20h-2Ah?
+ 000002B7  74 1D			jz bit4off			;Yes. check for + or -
+					
+				;30h-3Ah
+ 000002B9  A8 08			test al, 00001000b	;38h-3Fh?
+ 000002BB  75 0E			jnz bit3on			;yes, check
+ 000002BD  A8 0F			test al, 00001111b	;30h?
+ 000002BF  74 03			jz zero				;yes, validate
+ 000002C1  47				inc edi				;inc count of non-zero numbers
+ 000002C2  EB 23			jmp validchar		;31h-37h. valid
+					
+ 000002C4			zero:
+ 000002C4  83 FF 00			cmp edi, 0			;non-zero numbers in output?
+ 000002C7  74 C6			je getInput			;no. cannot enter leading zero
+ 000002C9  EB 1C			jmp validchar
+					
+ 000002CB			bit3on:
+ 000002CB  A8 04			test al, 00000100b	;3Ch-3Fh?
+ 000002CD  75 C0			jnz getInput		;Yes. invalid
+ 000002CF  A8 02			test al, 00000010b	;3Ah-3Bh?
+ 000002D1  75 BC			jnz getInput		;Yes. invalid
+ 000002D3  47				inc edi				;inc count of non-zero numbers
+ 000002D4  EB 11			jmp validchar		;38h-39h. valid
+					
+ 000002D6			bit4off:
+ 000002D6  83 FE 00			cmp esi, 0			;check for index of 0.
+ 000002D9  75 B4			jne getInput		;if not 0, cannot enter + or -
+ 000002DB  A8 08			test al, 00001000b	;check bit 3
+ 000002DD  74 B0			jz getInput			;bit 3 off, not 02Bh or 02Dh (+ or -)
+ 000002DF  A8 0F			test al, 00001111b	;check for parity. eliminates 029h, 02Ah, 02Ch, 02Fh
+ 000002E1  7A AC			jp getInput			;found one of 029h, 02Ah, 02Ch, 02Fh
+ 000002E3  A8 01			test al, 00000001b	;check for last bit off. eliminates 02Eh
+ 000002E5  74 A8			jz getInput
+					
+ 000002E7			validchar:
+					
+				putc al					;character validated, print and move into string to hold
+ 000002E7  50		     1		push eax		
+ 000002E8  8A C0	     1		mov al, al	
+ 000002EA  50		     1		push eax		
+ 000002EB  E8 00000000 E     1		call putchar 
+ 000002F0  83 C4 04	     1		add esp, 4		
+ 000002F3  58		     1		pop eax			;restore eax
+ 000002F4  88 04 1E			mov [ebx+esi], al
+ 000002F7  46				inc esi				;count 1 character
+ 000002F8  EB 95			jmp getInput		;get more characters after asterisk displayed
+					
+ 000002FA			backspacePressed:
+ 000002FA  83 FE 00			cmp esi, 0			;check to see if character count = 0
+ 000002FD  74 90			je getInput
+ 000002FF  4E				dec esi				;-1 from character count	
+				putc backspace			;move back one space
+ 00000300  50		     1		push eax		
+ 00000301  B0 08	     1		mov al, backspace	
+ 00000303  50		     1		push eax		
+ 00000304  E8 00000000 E     1		call putchar 
+ 00000309  83 C4 04	     1		add esp, 4		
+ 0000030C  58		     1		pop eax			;restore eax
+				putc space				;overwrite character with a space
+ 0000030D  50		     1		push eax		
+ 0000030E  B0 20	     1		mov al, space	
+ 00000310  50		     1		push eax		
+ 00000311  E8 00000000 E     1		call putchar 
+ 00000316  83 C4 04	     1		add esp, 4		
+ 00000319  58		     1		pop eax			;restore eax
+				putc backspace			;move cursor back after overwrite
+ 0000031A  50		     1		push eax		
+ 0000031B  B0 08	     1		mov al, backspace	
+ 0000031D  50		     1		push eax		
+ 0000031E  E8 00000000 E     1		call putchar 
+ 00000323  83 C4 04	     1		add esp, 4		
+ 00000326  58		     1		pop eax			;restore eax
+ 00000327  83 FF 00			cmp edi, 0			;check for no non-zero numbers
+ 0000032A  0F 84 FFFFFF5F		je getInput			;if none, go back to input
+ 00000330  4F				dec edi				;if edi > 0, decrement
+ 00000331  E9 FFFFFF59			jmp getInput
+					
+ 00000336			done:					;enter key pressed. finished getting characters
+ 00000336  32 C0			xor al, al
+ 00000338  88 04 1E			mov [ebx+esi], al 	;null-terminate the string
+					
+ 0000033B  5E				pop esi
+ 0000033C  5F				pop edi
+ 0000033D  5B				pop ebx
+ 0000033E  5B				pop ebx				;restore registers
+ 0000033F  5D				pop ebp				;restore base pointer
+					
+ 00000340  C3				ret 
+ 00000341			 getNum endp
+
+
+				;COMMENT !
+				;/***********************************************************************************
+				; * Method Name: stringLength
+				; * Method Purpose: Count the length of a string passed as a parameter
+				; *
+				; *
+				; * Date created: 10/23/2012
+				; * Date last modified: 10/28/2012
+				; *
+				; * Parameters:	
+				; *		@param lpStringToCount:dword
+				; * Return:		
+				; *		@return eax 
+				; *
+				; ***********************************************************************************
+				; !
+ 00000341			stringLength PROC
+				 
+ 00000341  55				push ebp				;preserve base pointer
+ 00000342  8B EC			mov ebp, esp			;set the stack frame
+ 00000344  53				push ebx				;preserve the value of ebx
+ 00000345  51				push ecx
+ 00000346  56				push esi				;preserve value of esi	
+					 
+ 00000347  33 C0			xor eax, eax				;prime eax. will hold the length of the string	 
+ 00000349  33 F6			xor esi, esi
+ 0000034B  8B 5D 08			mov ebx, [ebp+8]	;ebx --> address of strAddress
+					
+ 0000034E			count:
+					
+ 0000034E  8B 0C 1E			mov ecx, [ebx+esi]	;ecx gets value of strAddress byte by byte
+ 00000351  80 F9 00			cmp cl, 0			;look for end of string
+ 00000354  74 04			je lengthDone	;finished if character 0
+ 00000356  46				inc esi			;increment to find next index in string
+ 00000357  40				inc eax			;increment to track the length
+ 00000358  75 F4			jne count		;keep counting if character not 0
+
+ 0000035A			lengthDone:
+ 0000035A  5E				pop esi
+ 0000035B  59				pop ecx
+ 0000035C  5B				pop ebx			;restore registers used
+ 0000035D  5D				pop ebp
+					
+ 0000035E  C3				ret
+ 0000035F			stringLength endp
+
+				END
+Microsoft (R) Macro Assembler Version 6.11		    11/13/12 02:45:23
+myutility.asm						     Symbols 2 - 1
+
+
+
+
+Macros:
+
+                N a m e                 Type
+
+getc . . . . . . . . . . . . . .	Proc
+putc . . . . . . . . . . . . . .	Proc
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+FLAT . . . . . . . . . . . . . .	GROUP
+STACK  . . . . . . . . . . . . .	32 Bit	 00000100 DWord	  Stack	  'STACK'	 
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000000 DWord	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 0000035F DWord	  Public  'CODE'	
+
+
+Procedures,  parameters and locals:
+
+                N a m e                 Type     Value    Attr
+
+getNum . . . . . . . . . . . . .	P Near	 00000281 _TEXT	Length= 000000C0 Public
+  getInput . . . . . . . . . . .	L Near	 0000028F _TEXT	
+  zero . . . . . . . . . . . . .	L Near	 000002C4 _TEXT	
+  bit3on . . . . . . . . . . . .	L Near	 000002CB _TEXT	
+  bit4off  . . . . . . . . . . .	L Near	 000002D6 _TEXT	
+  validchar  . . . . . . . . . .	L Near	 000002E7 _TEXT	
+  backspacePressed . . . . . . .	L Near	 000002FA _TEXT	
+  done . . . . . . . . . . . . .	L Near	 00000336 _TEXT	
+getpassword  . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000281 Public
+  getInput . . . . . . . . . . .	L Near	 00000016 _TEXT	
+  backspacePressed . . . . . . .	L Near	 0000003B _TEXT	
+  done . . . . . . . . . . . . .	L Near	 0000006A _TEXT	
+  error01  . . . . . . . . . . .	L Near	 0000008E _TEXT	
+  error02  . . . . . . . . . . .	L Near	 000000CC _TEXT	
+  beginning02  . . . . . . . . .	L Near	 000000D1 _TEXT	
+  error03  . . . . . . . . . . .	L Near	 0000010C _TEXT	
+  beginning03  . . . . . . . . .	L Near	 00000111 _TEXT	
+  error04  . . . . . . . . . . .	L Near	 00000147 _TEXT	
+  beginning04  . . . . . . . . .	L Near	 0000014C _TEXT	
+  bit1check  . . . . . . . . . .	L Near	 0000017D _TEXT	
+  error05  . . . . . . . . . . .	L Near	 00000184 _TEXT	
+  beginning05  . . . . . . . . .	L Near	 00000189 _TEXT	
+  error06  . . . . . . . . . . .	L Near	 000001B5 _TEXT	
+  beginning06  . . . . . . . . .	L Near	 000001BA _TEXT	
+  bit5 . . . . . . . . . . . . .	L Near	 000001FC _TEXT	
+  bit4and5 . . . . . . . . . . .	L Near	 0000021C _TEXT	
+  bit4 . . . . . . . . . . . . .	L Near	 0000022D _TEXT	
+  error0fail . . . . . . . . . .	L Near	 0000024A _TEXT	
+  error1fail . . . . . . . . . .	L Near	 00000253 _TEXT	
+  error2fail . . . . . . . . . .	L Near	 0000025A _TEXT	
+  error3fail . . . . . . . . . .	L Near	 00000261 _TEXT	
+  error4fail . . . . . . . . . .	L Near	 00000268 _TEXT	
+  error5fail . . . . . . . . . .	L Near	 0000026F _TEXT	
+  error6fail . . . . . . . . . .	L Near	 00000276 _TEXT	
+  exit . . . . . . . . . . . . .	L Near	 00000278 _TEXT	
+stringLength . . . . . . . . . .	P Near	 00000341 _TEXT	Length= 0000001E Public
+  count  . . . . . . . . . . . .	L Near	 0000034E _TEXT	
+  lengthDone . . . . . . . . . .	L Near	 0000035A _TEXT	
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 00000000h   
+@DataSize  . . . . . . . . . . .	Number	 00000000h   
+@Interface . . . . . . . . . . .	Number	 00000000h   
+@Model . . . . . . . . . . . . .	Number	 00000007h   
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 FLAT
+@fardata?  . . . . . . . . . . .	Text   	 FLAT
+@fardata . . . . . . . . . . . .	Text   	 FLAT
+@stack . . . . . . . . . . . . .	Text   	 FLAT
+asterisk . . . . . . . . . . . .	Number	 0000002Ah   
+backspace  . . . . . . . . . . .	Number	 00000008h   
+enterkey . . . . . . . . . . . .	Number	 0000000Dh   
+getchar  . . . . . . . . . . . .	L Near	 00000000 FLAT	External
+maxNumLength . . . . . . . . . .	Text   	 [ebp+12]
+minLength_Local  . . . . . . . .	Text   	 dword ptr [ebp-16]
+putchar  . . . . . . . . . . . .	L Near	 00000000 FLAT	External
+pwLength . . . . . . . . . . . .	Text   	 [ebp+8]
+space  . . . . . . . . . . . . .	Number	 00000020h   
+
+	   0 Warnings
+	   0 Errors
